@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+   <link rel="stylesheet" href="../static/adminDashboard.css" />
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>FireTrackr</h2>
+    </div>
+    <div class="nav">
+      <a href="adminDashboard.html"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="alerts.html"><i class="fas fa-bell"></i> Alerts <span class="badge">0</span></a>
+      <a href="alertResolve.html"><i class="fas fa-fire"></i> History</a>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <h1>Dashboard</h1>
+      <div class="profile">
+        <button class="toggle-btn" id="toggleTheme">🌙</button>
+        <a href="adminProfile.html"><i class="fas fa-user-circle"></i></a>
+      </div>
+    </div>
+    <div class="content">
+      <div class="stats">
+        <div class="stat-card">
+          <h3 id="activeCount">0</h3>
+          <p>Active Alerts</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="totalCount">0</h3>
+          <p>Total Reports</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="resolvedCount">0</h3>
+          <p>Resolved</p>
+        </div>
+      </div>
+      <div class="table-container">
+        <h2>Recent Alerts</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="recentAlertsTable">
+            <!-- JS will fill this -->
+          </tbody>
+        </table>
+        <a href="alerts.html" class="view-more">View More Alerts</a>
+      </div>
+      <div id="map"></div>
+    </div>
+    <div class="footer">
+      &copy; 2025 FireTrackr. All rights reserved.
+    </div>
+  </div>
+
+ <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  // Map init
+  var map = L.map('map').setView([8.4859, 123.8048], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Dark mode toggle
+  const toggleBtn = document.getElementById('toggleTheme');
+  toggleBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    toggleBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+  });
+
+  // -------- Dashboard Data Sync with localStorage --------
+  const LS_ACTIVE = "alertList";
+  const LS_RESOLVED = "resolvedAlerts";
+
+  function load(key) {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  }
+
+  function updateDashboard() {
+    const active = load(LS_ACTIVE);
+    const resolved = load(LS_RESOLVED);
+    const total = active.length + resolved.length;
+
+    // Update stat cards
+    document.getElementById("activeCount").textContent = active.length;
+    document.getElementById("resolvedCount").textContent = resolved.length;
+    document.getElementById("totalCount").textContent = total;
+
+    // Update sidebar badge
+    const badge = document.querySelector(".badge");
+    if (badge) badge.textContent = active.length;
+
+    // Fill recent alerts (last 5 active + resolved combined)
+    const tableBody = document.getElementById("recentAlertsTable");
+    tableBody.innerHTML = "";
+    const combined = [...active.map(a => ({...a, status:"Pending"})), ...resolved.map(r => ({...r, status:"Resolved"}))];
+    combined.sort((a,b)=> new Date(b.timestamp||b.resolvedAt) - new Date(a.timestamp||a.resolvedAt));
+
+    combined.slice(0,5).forEach((alert, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>#${i+1}</td>
+        <td>${alert.description || "No description"}</td>
+        <td class="${alert.status==='Pending'?'status-pending':'status-resolved'}">${alert.status}</td>
+        <td>${new Date(alert.timestamp || alert.resolvedAt).toLocaleString()}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    // Draw route to latest active alert (if exists)
+    if(active.length > 0){
+      const latestAlert = active[0]; // newest alert
+      fetchAndDrawRoute('FireStation', latestAlert.location || 'Accident'); // make sure your alert object has 'location'
+    }
+  }
+
+  // -------- Fetch and Draw Shortest Route --------
+  let currentRouteLine = null;
+  let startMarker = null;
+  let endMarker = null;
+
+  function fetchAndDrawRoute(start, end) {
+    fetch(`http://127.0.0.1:8000/get-shortest-route?start=${start}&end=${end}`)
+      .then(res => res.json())
+      .then(coords => {
+        if (!coords || coords.error) {
+          console.error('No route found or error:', coords.error);
+          return;
+        }
+
+        // Remove previous route if exists
+        if(currentRouteLine) map.removeLayer(currentRouteLine);
+        if(startMarker) map.removeLayer(startMarker);
+        if(endMarker) map.removeLayer(endMarker);
+
+        // Draw new polyline
+        currentRouteLine = L.polyline(coords, {color: 'red'}).addTo(map);
+
+        // Fit map to route
+        map.fitBounds(currentRouteLine.getBounds());
+
+        // Add markers
+        startMarker = L.marker(coords[0]).addTo(map).bindPopup('Fire Station').openPopup();
+        endMarker = L.marker(coords[coords.length - 1]).addTo(map).bindPopup('Accident').openPopup();
+      })
+      .catch(err => console.error('Fetch error:', err));
+  }
+
+  // Initial load
+  updateDashboard();
+
+  // Auto-refresh every 10 seconds (update dashboard + route)
+  setInterval(updateDashboard, 10000);
+</script>
+
+</body>
+</html>

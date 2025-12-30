@@ -1,0 +1,111 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  height: 100%;
+  background-color: #f2f2f2;
+  font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+
+/* Container scales with screen size */
+.alert-container {
+  width: 100%;
+  max-width: 500px; /* grows up to 500px on larger screens */
+  background-color: #ffffff;
+  border: 4px solid #800000;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h2 {
+  text-align: center;
+  color: #800000;
+  font-size: 20px;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+textarea {
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  resize: none;
+  min-height: 100px;
+}
+
+input[type="file"] {
+  width: 100%;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  background-color: #800000;
+  color: white;
+  font-size: 16px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #a30000;
+}
+
+/* File labels styling */
+.file-label {
+  display: block;
+  width: 100%;
+  margin-bottom: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #333;
+}
+
+/* Preview styling */
+.preview {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .alert-container {
+    padding: 15px;
+  }
+
+  textarea {
+    font-size: 14px;
+    min-height: 80px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 10px;
+  }
+}
