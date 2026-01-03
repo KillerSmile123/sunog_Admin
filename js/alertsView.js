@@ -1,4 +1,6 @@
-// ../js/alertsView.js
+// API Configuration
+const API_BASE = "https://backend-3-hqil.onrender.com";
+
 // Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
@@ -13,48 +15,40 @@ document.addEventListener("DOMContentLoaded", () => {
   const badgeEl = document.querySelector(".badge");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
 
-  // ---------- storage helpers ----------
-  const LS_ACTIVE = "alertList";
-  const LS_RESOLVED = "resolvedAlerts";
-
-  const load = (key) => JSON.parse(localStorage.getItem(key) || "[]");
-
-  function save(key, data) {
+  // ---------- Fetch alerts from backend ----------
+  async function fetchAlerts() {
     try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (e) {
-      if (e.name === "QuotaExceededError") {
-        alert("Storage full! Keeping only the latest resolved alert.");
-        localStorage.removeItem(key); // clear old
-        localStorage.setItem(key, JSON.stringify([data[data.length - 1]])); // keep last
+      const response = await fetch(`${API_BASE}/get_alerts`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      return data.alerts || [];
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      alert('Failed to load alerts from server. Please refresh the page.');
+      return [];
     }
   }
 
-  function updateBadge() {
-    badgeEl && (badgeEl.textContent = load(LS_ACTIVE).length);
-  }
-
-  // Ensure each alert has a stable unique id
-  function ensureIds(alerts) {
-    let changed = false;
-    alerts.forEach((a) => {
-      if (!a._id) {
-        a._id = "a_" + Math.random().toString(36).slice(2) + Date.now();
-        changed = true;
-      }
-    });
-    if (changed) save(LS_ACTIVE, alerts);
-    return alerts;
+  function updateBadge(count) {
+    if (badgeEl) badgeEl.textContent = count;
   }
 
   // ---------- UI ----------
   function mediaHTML(alert) {
-    if (alert.mediaType === "image" && alert.media) {
-      return `<img src="${alert.media}" alt="Fire Image" class="media" style="max-width:100%;max-height:250px;border-radius:6px;">`;
+    const API_URL = API_BASE; // For serving media files
+    
+    if (alert.photo_filename) {
+      return `<img src="${API_URL}/uploads/${alert.photo_filename}" alt="Fire Image" class="media" style="max-width:100%;max-height:250px;border-radius:6px;">`;
     }
-    if (alert.mediaType === "video" && alert.media) {
-      return `<video controls src="${alert.media}" style="max-width:100%;max-height:250px;border-radius:6px;"></video>`;
+    if (alert.video_filename) {
+      return `<video controls src="${API_URL}/uploads/${alert.video_filename}" style="max-width:100%;max-height:250px;border-radius:6px;"></video>`;
     }
     return "";
   }
@@ -73,13 +67,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return (R * c).toFixed(2);
   }
 
-  function render() {
-    const alerts = ensureIds(load(LS_ACTIVE));
+  async function render() {
+    container.innerHTML = `<div class="info">Loading alerts...</div>`;
+    
+    const alerts = await fetchAlerts();
     container.innerHTML = "";
 
     if (alerts.length === 0) {
       container.innerHTML = `<div class="info">No alerts found.</div>`;
-      updateBadge();
+      updateBadge(0);
       return;
     }
 
@@ -93,17 +89,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const card = document.createElement("div");
       card.className = "alert-card";
-      card.dataset.id = alert._id;
+      card.dataset.id = alert.id; // Use database ID
 
-      const mapId = "map-" + alert._id;
+      const mapId = "map-" + alert.id;
 
       card.innerHTML = `
-        <div class="info"><strong>Reported:</strong> ${new Date(alert.timestamp || Date.now()).toLocaleString()}</div>
+        <div class="info"><strong>Alert ID:</strong> #${alert.id}</div>
+        <div class="info"><strong>Reported:</strong> ${new Date(alert.timestamp).toLocaleString()}</div>
         <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
         <div class="info"><strong>Distance:</strong> <span class="distance">${dist}</span></div>
         <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
-        <div class="info"><strong>Reporter:</strong> ${alert.user?.name || "Unknown"}</div>
-        <div class="info"><strong>Contact:</strong> ${alert.user?.contact || "N/A"}</div>
         <div class="media-preview">${mediaHTML(alert)}</div>
         <div id="${mapId}" style="width:100%;height:200px;border-radius:8px;margin-top:10px;"></div>
         <div style="margin-top:10px;">
@@ -126,11 +121,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    updateBadge();
+    updateBadge(alerts.length);
   }
 
   // ---------- event delegation for Resolve ----------
-  container.addEventListener("click", (e) => {
+  container.addEventListener("click", async (e) => {
     const btn = e.target.closest(".resolve-btn");
     if (!btn) return;
 
@@ -138,24 +133,43 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!card) return;
 
     const alertId = card.dataset.id;
-    let alerts = load(LS_ACTIVE);
-    const idx = alerts.findIndex((a) => a._id === alertId);
-    if (idx === -1) return;
 
-    // Move to resolved
-    const resolved = load(LS_RESOLVED);
-    resolved.push({ ...alerts[idx], resolvedAt: new Date().toISOString() });
-    save(LS_RESOLVED, resolved);
-
-    // Remove from active
-    alerts.splice(idx, 1);
-    save(LS_ACTIVE, alerts);
-
-    // Update UI
-    card.remove();
-    updateBadge();
+    // TODO: Call backend API to mark alert as resolved
+    // For now, just remove from UI
+    if (confirm('Mark this alert as resolved?')) {
+      try {
+        // You can add a /resolve_alert endpoint later
+        // const response = await fetch(`${API_BASE}/resolve_alert/${alertId}`, {
+        //   method: 'POST',
+        //   credentials: 'include'
+        // });
+        
+        // For now, just remove from UI and store in localStorage
+        const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+        const alertData = {
+          id: alertId,
+          resolvedAt: new Date().toISOString()
+        };
+        resolved.push(alertData);
+        localStorage.setItem('resolvedAlerts', JSON.stringify(resolved));
+        
+        card.remove();
+        
+        // Update badge
+        const remainingAlerts = document.querySelectorAll('.alert-card').length;
+        updateBadge(remainingAlerts);
+        
+        alert('Alert marked as resolved!');
+      } catch (error) {
+        console.error('Error resolving alert:', error);
+        alert('Failed to resolve alert. Please try again.');
+      }
+    }
   });
 
   // initial render
   render();
+
+  // Auto-refresh every 30 seconds
+  setInterval(render, 30000);
 });
