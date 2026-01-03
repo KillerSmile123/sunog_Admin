@@ -9,6 +9,8 @@ if (typeof AdminAuth !== 'undefined') {
   }
 }
 
+
+src="https://unpkg.com/leaflet/dist/leaflet.js"
 // Map init
 var map = L.map('map').setView([8.4859, 123.8048], 13);
 
