@@ -1,0 +1,91 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Roboto', sans-serif;
+}
+
+body {
+  height: 100vh;
+  width: 100%;
+  background: #f2f2f2  no-repeat center center/cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-card {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 40px 30px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.login-card img {
+  width: 80px;
+  margin-bottom: 20px;
+}
+
+.login-card h2 {
+  font-size: 24px;
+  color: #8B0000;
+  margin-bottom: 20px;
+}
+
+.input-icon {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid #b22222;
+  margin: 15px 0;
+  padding: 5px;
+  position: relative;
+}
+
+.input-icon span {
+  margin-right: 10px;
+  font-size: 18px;
+  color: #333;
+}
+
+.input-icon input {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 16px;
+  color: #000;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  font-size: 16px;
+  color: #555;
+  cursor: pointer;
+}
+
+button {
+  background: #cc0000;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  font-size: 16px;
+  border-radius: 10px;
+  margin-top: 25px;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:hover {
+  background: #990000;
+}
+
+.error-message {
+  color: red;
+  font-size: 14px;
+  margin-top: 15px;
+}

@@ -1,3 +1,6 @@
+// API Configuration
+const API_BASE = "https://backend-3-hqil.onrender.com";
+
 // Admin Login JavaScript
 // This file handles the admin login functionality
 
@@ -56,14 +59,14 @@ class AdminLogin {
     this.setLoadingState(submitButton, true);
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/login', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-});
-
+      const response = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
 
       const data = await response.json();
 

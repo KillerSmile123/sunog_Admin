@@ -1,4 +1,13 @@
 // ../js/alertsView.js
+// Use centralized auth helper if available
+if (typeof AdminAuth !== 'undefined') {
+  AdminAuth.requireAuth();
+} else {
+  if (!localStorage.getItem('adminToken')) {
+    window.location.href = 'adminLogin.html';
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("alerts-container");
   const badgeEl = document.querySelector(".badge");

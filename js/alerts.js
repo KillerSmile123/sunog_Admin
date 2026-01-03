@@ -1,3 +1,12 @@
+// Use centralized auth helper if available
+if (typeof AdminAuth !== 'undefined') {
+  AdminAuth.requireAuth();
+} else {
+  if (!localStorage.getItem('adminToken')) {
+    window.location.href = 'adminLogin.html';
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   const container = document.getElementById("alerts-container");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
