@@ -1,4 +1,4 @@
-// API Configuration
+// API_BASE is defined in config.js
 
 // Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
@@ -9,8 +9,6 @@ if (typeof AdminAuth !== 'undefined') {
   }
 }
 
-
-src="https://unpkg.com/leaflet/dist/leaflet.js"
 // Map init
 var map = L.map('map').setView([8.4859, 123.8048], 13);
 
@@ -20,28 +18,46 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // Dark mode toggle
 const toggleBtn = document.getElementById('toggleTheme');
-toggleBtn.addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-  toggleBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-});
-
-// -------- Dashboard Data Sync with localStorage --------
-const LS_ACTIVE = "alertList";
-const LS_RESOLVED = "resolvedAlerts";
-
-function load(key) {
-  return JSON.parse(localStorage.getItem(key) || "[]");
+if (toggleBtn) {
+  toggleBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    toggleBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+  });
 }
 
-function updateDashboard() {
-  const active = load(LS_ACTIVE);
-  const resolved = load(LS_RESOLVED);
+// -------- Fetch alerts from backend --------
+async function fetchAlerts() {
+  try {
+    const response = await fetch(`${API_BASE}/get_alerts`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.alerts || [];
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    return [];
+  }
+}
+
+async function updateDashboard() {
+  const active = await fetchAlerts();
+  const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
   const total = active.length + resolved.length;
 
   // Update stat cards
-  document.getElementById("activeCount").textContent = active.length;
-  document.getElementById("resolvedCount").textContent = resolved.length;
-  document.getElementById("totalCount").textContent = total;
+  const activeCountEl = document.getElementById("activeCount");
+  const resolvedCountEl = document.getElementById("resolvedCount");
+  const totalCountEl = document.getElementById("totalCount");
+  
+  if (activeCountEl) activeCountEl.textContent = active.length;
+  if (resolvedCountEl) resolvedCountEl.textContent = resolved.length;
+  if (totalCountEl) totalCountEl.textContent = total;
 
   // Update sidebar badge
   const badge = document.querySelector(".badge");
@@ -49,25 +65,32 @@ function updateDashboard() {
 
   // Fill recent alerts (last 5 active + resolved combined)
   const tableBody = document.getElementById("recentAlertsTable");
-  tableBody.innerHTML = "";
-  const combined = [...active.map(a => ({...a, status:"Pending"})), ...resolved.map(r => ({...r, status:"Resolved"}))];
-  combined.sort((a,b)=> new Date(b.timestamp||b.resolvedAt) - new Date(a.timestamp||a.resolvedAt));
+  if (tableBody) {
+    tableBody.innerHTML = "";
+    
+    const combined = [
+      ...active.map(a => ({...a, status:"Pending"})), 
+      ...resolved.map(r => ({...r, status:"Resolved"}))
+    ];
+    
+    combined.sort((a,b) => new Date(b.timestamp||b.resolvedAt) - new Date(a.timestamp||a.resolvedAt));
 
-  combined.slice(0,5).forEach((alert, i) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>#${i+1}</td>
-      <td>${alert.description || "No description"}</td>
-      <td class="${alert.status==='Pending'?'status-pending':'status-resolved'}">${alert.status}</td>
-      <td>${new Date(alert.timestamp || alert.resolvedAt).toLocaleString()}</td>
-    `;
-    tableBody.appendChild(tr);
-  });
+    combined.slice(0, 5).forEach((alert, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>#${alert.id || i+1}</td>
+        <td>${alert.description || "No description"}</td>
+        <td class="${alert.status==='Pending'?'status-pending':'status-resolved'}">${alert.status}</td>
+        <td>${new Date(alert.timestamp || alert.resolvedAt).toLocaleString()}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  }
 
   // Draw route to latest active alert (if exists)
-  if(active.length > 0){
+  if (active.length > 0) {
     const latestAlert = active[0]; // newest alert
-    fetchAndDrawRoute('FireStation', latestAlert.location || 'Accident'); // make sure your alert object has 'location'
+    fetchAndDrawRoute('FireStation', latestAlert.location || 'Accident');
   }
 }
 
@@ -88,9 +111,9 @@ function fetchAndDrawRoute(start, end) {
       }
 
       // Remove previous route if exists
-      if(currentRouteLine) map.removeLayer(currentRouteLine);
-      if(startMarker) map.removeLayer(startMarker);
-      if(endMarker) map.removeLayer(endMarker);
+      if (currentRouteLine) map.removeLayer(currentRouteLine);
+      if (startMarker) map.removeLayer(startMarker);
+      if (endMarker) map.removeLayer(endMarker);
 
       // Draw new polyline
       currentRouteLine = L.polyline(coords, {color: 'red'}).addTo(map);
@@ -108,5 +131,5 @@ function fetchAndDrawRoute(start, end) {
 // Initial load
 updateDashboard();
 
-// Auto-refresh every 10 seconds (update dashboard + route)
-setInterval(updateDashboard, 10000);
+// Auto-refresh every 30 seconds
+setInterval(updateDashboard, 30000);
