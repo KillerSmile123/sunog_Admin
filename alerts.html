@@ -31,16 +31,16 @@
     <div class="footer">&copy; 2025 FireTrackr. All rights reserved.</div>
   </div>
 
+  <!-- Load Leaflet first -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/config.js"></script>
-<script src="js/alertsView.js"></script>
-
-
-
+  <!-- Load config.js FIRST to define API_BASE -->
+  <script src="js/config.js"></script>
   
-
-
+  <!-- Then load auth utilities -->
+  <script src="js/auth.js"></script>
+  
+  <!-- Finally load alertsView.js (which uses API_BASE from config.js) -->
+  <script src="js/alertsView.js"></script>
 </body>
 </html>

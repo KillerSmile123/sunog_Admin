@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE = "https://backend-3-hqil.onrender.com";
+
 
 // Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
