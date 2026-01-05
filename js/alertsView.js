@@ -4,9 +4,10 @@
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
 } else {
-  if (!localStorage.getItem('adminToken')) {
-    window.location.href = 'adminLogin.html';
-  }
+  // Fallback: verify session with backend once
+  fetch(`${API_BASE}/auth/verify`, { credentials: 'include' })
+    .then(res => { if (!res.ok) window.location.href = 'adminLogin.html'; })
+    .catch(() => { window.location.href = 'adminLogin.html'; });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -186,20 +187,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         throw new Error('server');
       } catch (error) {
-        // fallback to storing resolved state locally
-        try {
-          const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
-          resolved.push({ id: alertId, resolvedAt: new Date().toISOString() });
-          localStorage.setItem('resolvedAlerts', JSON.stringify(resolved));
-
-          card.remove();
-          const remainingAlerts = document.querySelectorAll('.alert-card').length;
-          updateBadge(remainingAlerts);
-          alert('Alert marked as resolved (local fallback).');
-        } catch (err) {
-          console.error('Error resolving alert:', err);
-          alert('Failed to resolve alert. Please try again.');
-        }
+        console.error('Error resolving alert:', error);
+        alert('Failed to resolve alert. Please try again.');
       }
     }
   });

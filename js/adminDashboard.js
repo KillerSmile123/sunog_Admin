@@ -4,9 +4,9 @@
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
 } else {
-  if (!localStorage.getItem('adminToken')) {
-    window.location.href = 'adminLogin.html';
-  }
+  fetch(`${API_BASE}/auth/verify`, { credentials: 'include' })
+    .then(res => { if (!res.ok) window.location.href = 'adminLogin.html'; })
+    .catch(() => { window.location.href = 'adminLogin.html'; });
 }
 
 // Map init

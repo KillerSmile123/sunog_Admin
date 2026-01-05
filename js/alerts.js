@@ -1,4 +1,5 @@
 // Use centralized auth helper if available
+// Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
 } else {
@@ -11,19 +12,19 @@ document.addEventListener("DOMContentLoaded", async function () {
   const container = document.getElementById("alerts-container");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
 
-  // Load active alerts from backend with fallback to localStorage
-  async function loadAlertsFromServer() {
-    try {
-      const res = await fetch(`${API_BASE}/get_alerts`, { method: 'GET', credentials: 'include' });
-      if (!res.ok) throw new Error('fetch failed');
+  // Load active alerts (client-side localStorage fallback)
+  let alerts = [];
+  try {
+    const res = await fetch(`${API_BASE}/get_alerts`, { method: 'GET', credentials: 'include' });
+    if (res.ok) {
       const data = await res.json();
-      return data.alerts || [];
-    } catch (err) {
-      return JSON.parse(localStorage.getItem('alerts') || '[]');
+      alerts = data.alerts || [];
+    } else {
+      alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
     }
+  } catch (err) {
+    alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
   }
-
-  const alerts = await loadAlertsFromServer();
 
   if (!alerts || alerts.length === 0) {
     container.innerHTML = "No active alerts.";

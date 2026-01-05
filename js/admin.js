@@ -109,17 +109,17 @@ class AdminLogin {
   }
 
   handleLoginSuccess(data) {
-    // Prefer server-side session; still store locally if AdminAuth helper isn't present
+    // Store admin token if provided
     if (data.token) {
-      if (window.AdminAuth && typeof AdminAuth.setToken === 'function') AdminAuth.setToken(data.token);
-      else localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminToken', data.token);
     }
 
+    // Store admin info if provided
     if (data.admin) {
-      if (window.AdminAuth && typeof AdminAuth.setAdminInfo === 'function') AdminAuth.setAdminInfo(data.admin);
-      else localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+      localStorage.setItem('adminInfo', JSON.stringify(data.admin));
     }
 
+    // Show success message
     this.showSuccess('Login successful!');
 
     // Redirect to admin dashboard after a short delay
