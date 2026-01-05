@@ -47,7 +47,18 @@ async function fetchAlerts() {
 
 async function updateDashboard() {
   const active = await fetchAlerts();
-  const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+  let resolved = [];
+  try {
+    const r = await fetch(`${API_BASE}/get_resolved_alerts`, { method: 'GET', credentials: 'include' });
+    if (r.ok) {
+      const data = await r.json();
+      resolved = data.resolved || [];
+    } else {
+      resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+    }
+  } catch (err) {
+    resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+  }
   const total = active.length + resolved.length;
 
   // Update stat cards

@@ -7,14 +7,25 @@ if (typeof AdminAuth !== 'undefined') {
   }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   const container = document.getElementById("alerts-container");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
 
-  // Load active alerts
-  let alerts = JSON.parse(localStorage.getItem("alerts")) || [];
+  // Load active alerts from backend with fallback to localStorage
+  async function loadAlertsFromServer() {
+    try {
+      const res = await fetch(`${API_BASE}/get_alerts`, { method: 'GET', credentials: 'include' });
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      return data.alerts || [];
+    } catch (err) {
+      return JSON.parse(localStorage.getItem('alerts') || '[]');
+    }
+  }
 
-  if (alerts.length === 0) {
+  const alerts = await loadAlertsFromServer();
+
+  if (!alerts || alerts.length === 0) {
     container.innerHTML = "No active alerts.";
     return;
   }
@@ -45,27 +56,43 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Handle resolve click
-  container.addEventListener("click", function (e) {
+  container.addEventListener("click", async function (e) {
     if (e.target.classList.contains("resolve-btn")) {
       const alertId = e.target.dataset.id;
 
-      // Reload alerts from storage
-      let alerts = JSON.parse(localStorage.getItem("alerts")) || [];
-      const alertToResolve = alerts.find(a => a.id == alertId);
+      if (confirm('Mark this alert as resolved?')) {
+        try {
+          // Try resolving via backend
+          const res = await fetch(`${API_BASE}/resolve_alert/${encodeURIComponent(alertId)}`, {
+            method: 'POST',
+            credentials: 'include'
+          });
 
-      if (alertToResolve) {
-        // Remove from active alerts
-        alerts = alerts.filter(a => a.id != alertId);
-        localStorage.setItem("alerts", JSON.stringify(alerts));
+          if (res.ok) {
+            e.target.closest('.alert-card').remove();
+            alert('Alert resolved successfully!');
+            return;
+          }
+          throw new Error('server');
+        } catch (err) {
+          // Fallback to localStorage handling
+          let alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
+          const alertToResolve = alerts.find(a => a.id == alertId);
 
-        // Add to resolved alerts
-        let resolved = JSON.parse(localStorage.getItem("resolvedAlerts")) || [];
-        resolved.push({ ...alertToResolve, resolvedAt: new Date().toISOString() });
-        localStorage.setItem("resolvedAlerts", JSON.stringify(resolved));
+          if (alertToResolve) {
+            alerts = alerts.filter(a => a.id != alertId);
+            localStorage.setItem('alerts', JSON.stringify(alerts));
 
-        // Remove from UI
-        e.target.closest(".alert-card").remove();
-        alert("Alert resolved successfully!");
+            let resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+            resolved.push({ ...alertToResolve, resolvedAt: new Date().toISOString() });
+            localStorage.setItem('resolvedAlerts', JSON.stringify(resolved));
+
+            e.target.closest('.alert-card').remove();
+            alert('Alert resolved locally (fallback).');
+          } else {
+            alert('Failed to resolve alert.');
+          }
+        }
       }
     }
   });

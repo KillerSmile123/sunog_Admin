@@ -134,35 +134,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const alertId = card.dataset.id;
 
-    // TODO: Call backend API to mark alert as resolved
-    // For now, just remove from UI
+    // Resolve via backend, fallback to localStorage
     if (confirm('Mark this alert as resolved?')) {
       try {
-        // You can add a /resolve_alert endpoint later
-        // const response = await fetch(`${API_BASE}/resolve_alert/${alertId}`, {
-        //   method: 'POST',
-        //   credentials: 'include'
-        // });
-        
-        // For now, just remove from UI and store in localStorage
-        const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
-        const alertData = {
-          id: alertId,
-          resolvedAt: new Date().toISOString()
-        };
-        resolved.push(alertData);
-        localStorage.setItem('resolvedAlerts', JSON.stringify(resolved));
-        
-        card.remove();
-        
-        // Update badge
-        const remainingAlerts = document.querySelectorAll('.alert-card').length;
-        updateBadge(remainingAlerts);
-        
-        alert('Alert marked as resolved!');
+        const res = await fetch(`${API_BASE}/resolve_alert/${encodeURIComponent(alertId)}`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          card.remove();
+          const remainingAlerts = document.querySelectorAll('.alert-card').length;
+          updateBadge(remainingAlerts);
+          alert('Alert marked as resolved!');
+          return;
+        }
+
+        throw new Error('server');
       } catch (error) {
-        console.error('Error resolving alert:', error);
-        alert('Failed to resolve alert. Please try again.');
+        // fallback to storing resolved state locally
+        try {
+          const resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+          resolved.push({ id: alertId, resolvedAt: new Date().toISOString() });
+          localStorage.setItem('resolvedAlerts', JSON.stringify(resolved));
+
+          card.remove();
+          const remainingAlerts = document.querySelectorAll('.alert-card').length;
+          updateBadge(remainingAlerts);
+          alert('Alert marked as resolved (local fallback).');
+        } catch (err) {
+          console.error('Error resolving alert:', err);
+          alert('Failed to resolve alert. Please try again.');
+        }
       }
     }
   });

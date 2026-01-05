@@ -109,17 +109,17 @@ class AdminLogin {
   }
 
   handleLoginSuccess(data) {
-    // Store admin token if provided
+    // Prefer server-side session; still store locally if AdminAuth helper isn't present
     if (data.token) {
-      localStorage.setItem('adminToken', data.token);
+      if (window.AdminAuth && typeof AdminAuth.setToken === 'function') AdminAuth.setToken(data.token);
+      else localStorage.setItem('adminToken', data.token);
     }
 
-    // Store admin info if provided
     if (data.admin) {
-      localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+      if (window.AdminAuth && typeof AdminAuth.setAdminInfo === 'function') AdminAuth.setAdminInfo(data.admin);
+      else localStorage.setItem('adminInfo', JSON.stringify(data.admin));
     }
 
-    // Show success message
     this.showSuccess('Login successful!');
 
     // Redirect to admin dashboard after a short delay
@@ -187,35 +187,8 @@ class AdminLogin {
   }
 }
 
-// Utility functions for admin authentication
-class AdminAuth {
-  static isLoggedIn() {
-    return localStorage.getItem('adminToken') !== null;
-  }
-
-  static getToken() {
-    return localStorage.getItem('adminToken');
-  }
-
-  static getAdminInfo() {
-    const adminInfo = localStorage.getItem('adminInfo');
-    return adminInfo ? JSON.parse(adminInfo) : null;
-  }
-
-  static logout() {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminInfo');
-    window.location.href = 'adminLogin.html';
-  }
-
-  static checkAuth() {
-    if (!this.isLoggedIn()) {
-      window.location.href = 'adminLogin.html';
-      return false;
-    }
-    return true;
-  }
-}
+// Use centralized AdminAuth from auth.js if available
+const AdminAuth = window.AdminAuth || null;
 
 // Initialize the admin login when the script loads
 const adminLogin = new AdminLogin();
