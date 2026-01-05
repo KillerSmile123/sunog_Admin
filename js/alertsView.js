@@ -1,6 +1,5 @@
 // API Configuration
 
-
 // Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
@@ -40,15 +39,48 @@ document.addEventListener("DOMContentLoaded", () => {
     if (badgeEl) badgeEl.textContent = count;
   }
 
-  // ---------- UI ----------
-  function mediaHTML(alert) {
-    const API_URL = API_BASE; // For serving media files
+  // ✅ Function to generate reporter info header HTML
+  function reporterHeaderHTML(alert) {
+    const hasReporterInfo = alert.reporter_name || alert.barangay;
     
-    if (alert.photo_filename) {
-      return `<img src="${API_URL}/uploads/${alert.photo_filename}" alt="Fire Image" class="media" style="max-width:100%;max-height:250px;border-radius:6px;">`;
+    if (!hasReporterInfo) {
+      return `<div class="no-reporter-info">
+        <i class="fas fa-info-circle"></i> Reporter information not available
+      </div>`;
     }
-    if (alert.video_filename) {
-      return `<video controls src="${API_URL}/uploads/${alert.video_filename}" style="max-width:100%;max-height:250px;border-radius:6px;"></video>`;
+
+    const reporterName = alert.reporter_name || 'Anonymous Reporter';
+    const barangay = alert.barangay || 'Unknown Location';
+
+    return `
+      <div class="reporter-header">
+        <div class="reporter-info">
+          <h3 class="reporter-name">
+            <i class="fas fa-user"></i> ${reporterName}
+          </h3>
+          <p class="reporter-barangay">
+            <i class="fas fa-map-marker-alt"></i> Barangay ${barangay}
+          </p>
+        </div>
+        <div style="font-size: 24px;">
+          <i class="fas fa-fire"></i>
+        </div>
+      </div>
+    `;
+  }
+
+  // ✅ Function to display incident photo/video
+  function mediaHTML(alert) {
+    // Use photo_url and video_url which contain Cloudinary URLs
+    if (alert.photo_url) {
+      return `<div class="media-preview">
+        <img src="${alert.photo_url}" alt="Incident Photo" class="media">
+      </div>`;
+    }
+    if (alert.video_url) {
+      return `<div class="media-preview">
+        <video controls src="${alert.video_url}" class="media"></video>
+      </div>`;
     }
     return "";
   }
@@ -89,26 +121,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const card = document.createElement("div");
       card.className = "alert-card";
-      card.dataset.id = alert.id; // Use database ID
+      card.dataset.id = alert.id;
 
       const mapId = "map-" + alert.id;
 
+      // ✅ Build card with reporter info at top and incident photo prominently displayed
       card.innerHTML = `
+        ${reporterHeaderHTML(alert)}
         <div class="info"><strong>Alert ID:</strong> #${alert.id}</div>
         <div class="info"><strong>Reported:</strong> ${new Date(alert.timestamp).toLocaleString()}</div>
-        <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
-        <div class="info"><strong>Distance:</strong> <span class="distance">${dist}</span></div>
         <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
-        <div class="media-preview">${mediaHTML(alert)}</div>
+        ${mediaHTML(alert)}
+        <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
+        <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
         <div id="${mapId}" style="width:100%;height:200px;border-radius:8px;margin-top:10px;"></div>
-        <div style="margin-top:10px;">
-          <button type="button" class="resolve-btn" style="background:#e74c3c;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">
-            Resolve
+        <div style="margin-top:15px;">
+          <button type="button" class="resolve-btn">
+            <i class="fas fa-check"></i> Mark as Resolved
           </button>
         </div>
       `;
       container.appendChild(card);
 
+      // Initialize map if coordinates are valid
       if (hasCoords && window.L) {
         const map = L.map(mapId).setView([lat, lng], 14);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -134,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const alertId = card.dataset.id;
 
-    // Resolve via backend, fallback to localStorage
     if (confirm('Mark this alert as resolved?')) {
       try {
         const res = await fetch(`${API_BASE}/resolve_alert/${encodeURIComponent(alertId)}`, {
