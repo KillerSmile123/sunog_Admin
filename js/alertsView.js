@@ -71,16 +71,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ✅ Function to display incident photo/video
+  // ✅ Function to display incident photo/video with URL validation
   function mediaHTML(alert) {
-    // Use photo_url and video_url which contain Cloudinary URLs
-    if (alert.photo_url) {
+    // Helper function to get full URL
+    function getMediaURL(url) {
+      if (!url) return null;
+      
+      // If it's already a full URL (Cloudinary), use it
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      }
+      
+      // If it's just a filename (old uploads), construct backend URL
+      // Note: These old files might not exist anymore if you switched to Cloudinary
+      return `${API_BASE}/uploads/${url}`;
+    }
+
+    const photoURL = getMediaURL(alert.photo_url);
+    const videoURL = getMediaURL(alert.video_url);
+
+    if (photoURL) {
       return `<div class="media-preview">
-        <img src="${alert.photo_url}" alt="Incident Photo" class="media">
+        <img src="${photoURL}" alt="Incident Photo" class="media" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;\\'>Image not available</div>'">
       </div>`;
     }
-    if (alert.video_url) {
+    if (videoURL) {
       return `<div class="media-preview">
-        <video controls src="${alert.video_url}" class="media"></video>
+        <video controls src="${videoURL}" class="media" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;\\'>Video not available</div>'"></video>
       </div>`;
     }
     return "";
