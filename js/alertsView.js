@@ -52,56 +52,68 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   window.sendResponse = async () => {
-    // Enhanced null check with logging
-    if (!currentAlertData?.id) {
-      console.error('Error: currentAlertData is null or missing id in sendResponse');
-      alert('Error: Alert data not found. Please close and reopen the modal.');
-      closeRespondModal();
-      return;
-    }
-    
-    const message = document.getElementById('response-message').value.trim();
-    if (!message) {
-      alert('Please enter a response message');
-      return;
-    }
-
-    // Disable button to prevent double-clicks
-    const sendBtn = document.querySelector('#respond-modal button[onclick*="sendResponse"]');
+  // Disable button immediately to prevent double-clicks
+  const sendBtn = document.querySelector('#respond-modal .btn-primary');
+  if (sendBtn && sendBtn.disabled) {
+    console.log('Already sending, ignoring...');
+    return;
+  }
+  
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+  }
+  
+  if (!currentAlertData?.id) {
+    console.error('Error: currentAlertData is null');
+    alert('Error: Alert data not found.');
+    closeRespondModal();
     if (sendBtn) {
-      sendBtn.disabled = true;
-      sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
     }
-
-    try {
-      const res = await fetch(`${API_BASE}/respond_alert`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          alert_id: currentAlertData.id,
-          message: message
-        })
-      });
-
-      if (res.ok) {
-        closeRespondModal();
-        alert('Response sent successfully! User has been notified.');
-        render();
-      } else {
-        throw new Error('Failed to send response');
-      }
-    } catch (error) {
-      console.error('Error sending response:', error);
-      alert('Failed to send response. Please try again.');
-      
-      // Re-enable button on error
-      if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
-      }
+    return;
+  }
+  
+  const message = document.getElementById('response-message').value.trim();
+  if (!message) {
+    alert('Please enter a response message');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
     }
-  };
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/respond_alert`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alert_id: currentAlertData.id,
+        message: message
+      })
+    });
+
+    if (res.ok) {
+      closeRespondModal();
+      alert('Response sent successfully! User has been notified.');
+      render();
+    } else {
+      throw new Error('Failed to send response');
+    }
+  } catch (error) {
+    console.error('Error sending response:', error);
+    alert('Failed to send response. Please try again.');
+    
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+    }
+  }
+};
+
 window.markAsResolved = async () => {
     // Enhanced null check with logging
     if (!currentAlertData?.id) {

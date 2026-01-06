@@ -33,27 +33,53 @@
   </div>
 
   <!-- Respond Modal -->
-  <div class="modal" id="respond-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3><i class="fas fa-reply"></i> Respond to Alert</h3>
-        <button class="modal-close" onclick="closeRespondModal()">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p id="respond-alert-info"></p>
-        <label for="response-message"><strong>Your Response:</strong></label>
-        <textarea id="response-message" rows="4" placeholder="Enter your response message to the reporter..."></textarea>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-cancel" onclick="closeRespondModal()">Cancel</button>
-        <button class="btn-primary" onclick="sendResponse()">
-          <i class="fas fa-paper-plane"></i> Send Response
-        </button>
-      </div>
+<div class="modal" id="respond-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-reply"></i> Respond to Alert</h3>
+      <button type="button" class="modal-close" onclick="closeRespondModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p id="respond-alert-info"></p>
+      <label for="response-message"><strong>Your Response:</strong></label>
+      <textarea id="response-message" rows="4" placeholder="Enter your response message to the reporter..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeRespondModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="sendResponse()">
+        <i class="fas fa-paper-plane"></i> Send Response
+      </button>
     </div>
   </div>
+</div>
+
+<!-- Resolve Modal -->
+<div class="modal" id="resolve-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3><i class="fas fa-check-circle"></i> Resolve Fire Alert</h3>
+      <button type="button" class="modal-close" onclick="closeResolveModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p id="resolve-alert-info"></p>
+      <label for="resolve-time"><strong>Time Fire Was Resolved:</strong></label>
+      <input type="time" id="resolve-time" required>
+      <small style="display:block;margin-top:5px;color:#666;">
+        Enter the time when the fire was extinguished
+      </small>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeResolveModal()">Cancel</button>
+      <button type="button" class="btn-success" onclick="markAsResolved()">
+        <i class="fas fa-check"></i> Mark as Resolved
+      </button>
+    </div>
+  </div>
+</div>
 
   <!-- Resolve Modal -->
   <div class="modal" id="resolve-modal">
