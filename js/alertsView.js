@@ -15,8 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const badgeEl = document.querySelector(".badge");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
 
-  // ---------- Fetch alerts from backend ----------
-  async function fetchAlerts() {
+  // ---------- Fetch alerts from backend with retry logic ----------
+  async function fetchAlerts(retryCount = 0) {
+    const maxRetries = 3;
+    
     try {
       const response = await fetch(`${API_BASE}/get_alerts`, {
         method: 'GET',
@@ -30,8 +32,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       return data.alerts || [];
     } catch (error) {
-      console.error('Error fetching alerts:', error);
-      alert('Failed to load alerts from server. Please refresh the page.');
+      console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, error);
+      
+      // Retry if we haven't exceeded max retries
+      if (retryCount < maxRetries - 1) {
+        console.log(`Retrying in ${(retryCount + 1) * 2} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+        return fetchAlerts(retryCount + 1);
+      }
+      
+      // Show user-friendly error after all retries failed
+      container.innerHTML = `
+        <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
+          <i class="fas fa-exclamation-triangle"></i> 
+          <strong>Connection Error</strong><br>
+          Unable to load alerts. The server might be starting up.
+          <br><br>
+          <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            <i class="fas fa-sync"></i> Retry Now
+          </button>
+        </div>
+      `;
       return [];
     }
   }
@@ -70,8 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  // ✅ Function to display incident photo/video
-  // ✅ Function to display incident photo/video with URL validation
+  // ✅ Function to display incident photo/video with better error handling
   function mediaHTML(alert) {
     // Helper function to get full URL
     function getMediaURL(url) {
@@ -82,9 +102,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return url;
       }
       
-      // If it's just a filename (old uploads), construct backend URL
-      // Note: These old files might not exist anymore if you switched to Cloudinary
-      return `${API_BASE}/uploads/${url}`;
+      // No valid URL
+      return null;
     }
 
     const photoURL = getMediaURL(alert.photo_url);
@@ -92,15 +111,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (photoURL) {
       return `<div class="media-preview">
-        <img src="${photoURL}" alt="Incident Photo" class="media" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;\\'>Image not available</div>'">
+        <img src="${photoURL}" alt="Incident Photo" class="media" 
+             onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'"
+             onload="console.log('✅ Image loaded successfully')">
       </div>`;
     }
     if (videoURL) {
       return `<div class="media-preview">
-        <video controls src="${videoURL}" class="media" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;\\'>Video not available</div>'"></video>
+        <video controls src="${videoURL}" class="media" 
+               onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
       </div>`;
     }
-    return "";
+    
+    // No media provided - this is normal
+    return `<div class="media-preview" style="padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;margin:10px 0;">
+      📷 No photo or video submitted
+    </div>`;
   }
 
   function haversineDistance(coord1, coord2) {
@@ -118,13 +144,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function render() {
-    container.innerHTML = `<div class="info">Loading alerts...</div>`;
+    container.innerHTML = `
+      <div class="info" style="text-align: center; padding: 20px;">
+        <i class="fas fa-spinner fa-spin"></i> Loading alerts...
+      </div>
+    `;
     
     const alerts = await fetchAlerts();
     container.innerHTML = "";
 
     if (alerts.length === 0) {
-      container.innerHTML = `<div class="info">No alerts found.</div>`;
+      container.innerHTML = `
+        <div class="info" style="text-align: center; padding: 40px; color: #6c757d;">
+          <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+          <h3 style="margin: 0;">No Active Alerts</h3>
+          <p style="margin: 10px 0 0 0;">All clear! No fire incidents reported.</p>
+        </div>
+      `;
       updateBadge(0);
       return;
     }
@@ -163,14 +199,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Initialize map if coordinates are valid
       if (hasCoords && window.L) {
-        const map = L.map(mapId).setView([lat, lng], 14);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap contributors",
-        }).addTo(map);
-        L.marker([fireStation.lat, fireStation.lng])
-          .addTo(map)
-          .bindPopup("Fire Station");
-        L.marker([lat, lng]).addTo(map).bindPopup("Incident Location");
+        setTimeout(() => {
+          try {
+            const map = L.map(mapId).setView([lat, lng], 14);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              attribution: "© OpenStreetMap contributors",
+            }).addTo(map);
+            L.marker([fireStation.lat, fireStation.lng])
+              .addTo(map)
+              .bindPopup("Fire Station");
+            L.marker([lat, lng]).addTo(map).bindPopup("Incident Location");
+          } catch (mapError) {
+            console.error('Map initialization error:', mapError);
+            document.getElementById(mapId).innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Map could not be loaded</div>';
+          }
+        }, 100);
       }
     });
 
