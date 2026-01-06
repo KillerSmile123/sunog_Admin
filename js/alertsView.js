@@ -51,18 +51,26 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.add('active');
   };
 
-  window.closeResolveModal = () => {
-    document.getElementById('resolve-modal').classList.remove('active');
-    currentAlertData = null;
-  };
-
   window.sendResponse = async () => {
-    if (!currentAlertData) return;
+    // Enhanced null check with logging
+    if (!currentAlertData?.id) {
+      console.error('Error: currentAlertData is null or missing id in sendResponse');
+      alert('Error: Alert data not found. Please close and reopen the modal.');
+      closeRespondModal();
+      return;
+    }
     
     const message = document.getElementById('response-message').value.trim();
     if (!message) {
       alert('Please enter a response message');
       return;
+    }
+
+    // Disable button to prevent double-clicks
+    const sendBtn = document.querySelector('#respond-modal button[onclick*="sendResponse"]');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     }
 
     try {
@@ -86,11 +94,22 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Error sending response:', error);
       alert('Failed to send response. Please try again.');
+      
+      // Re-enable button on error
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+      }
     }
   };
-
-  window.markAsResolved = async () => {
-    if (!currentAlertData) return;
+window.markAsResolved = async () => {
+    // Enhanced null check with logging
+    if (!currentAlertData?.id) {
+      console.error('Error: currentAlertData is null or missing id in markAsResolved');
+      alert('Error: Alert data not found. Please close and reopen the modal.');
+      closeResolveModal();
+      return;
+    }
     
     const resolveTime = document.getElementById('resolve-time').value;
     if (!resolveTime) {
@@ -98,21 +117,31 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Disable button to prevent double-clicks
+    const resolveBtn = document.querySelector('#resolve-modal button[onclick*="markAsResolved"]');
+    if (resolveBtn) {
+      resolveBtn.disabled = true;
+      resolveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
+    }
+
+    // Store ID before clearing to prevent race conditions
+    const alertId = currentAlertData.id;
+
     try {
       const res = await fetch(`${API_BASE}/resolve_alert_with_time`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          alert_id: currentAlertData.id,
+          alert_id: alertId,
           resolve_time: resolveTime
         })
       });
 
       if (res.ok) {
-        closeResolveModal();
+        closeResolveModal(); // This sets currentAlertData to null
         alert('Alert marked as resolved! User has been notified.');
-        const card = document.querySelector(`[data-id="${currentAlertData.id}"]`);
+        const card = document.querySelector(`[data-id="${alertId}"]`);
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
@@ -122,6 +151,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Error resolving alert:', error);
       alert('Failed to resolve alert. Please try again.');
+      
+      // Re-enable button on error
+      if (resolveBtn) {
+        resolveBtn.disabled = false;
+        resolveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark as Resolved';
+      }
     }
   };
 
