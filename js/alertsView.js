@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Current alert data for modal operations
   let currentAlertData = null;
+  
+  // Track current alerts to avoid unnecessary re-renders
+  let currentAlertIds = [];
 
   // ========================================
   // MODAL FUNCTIONS (Global Scope)
@@ -162,6 +165,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
+        
+        // Update currentAlertIds
+        currentAlertIds = currentAlertIds.filter(id => id !== alertId);
       } else {
         throw new Error('Failed to resolve alert');
       }
@@ -194,6 +200,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
+        
+        // Update currentAlertIds
+        currentAlertIds = currentAlertIds.filter(id => id !== alertId);
       } else {
         throw new Error('Failed to delete alert');
       }
@@ -262,17 +271,20 @@ document.addEventListener("DOMContentLoaded", () => {
         return fetchAlerts(retryCount + 1);
       }
       
-      container.innerHTML = `
-        <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
-          <i class="fas fa-exclamation-triangle"></i> 
-          <strong>Connection Error</strong><br>
-          Unable to load alerts. The server might be starting up (this can take 60-90 seconds).
-          <br><br>
-          <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            <i class="fas fa-sync"></i> Retry Now
-          </button>
-        </div>
-      `;
+      // Only show error if container is empty (initial load failed)
+      if (container.children.length === 0) {
+        container.innerHTML = `
+          <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
+            <i class="fas fa-exclamation-triangle"></i> 
+            <strong>Connection Error</strong><br>
+            Unable to load alerts. The server might be starting up (this can take 60-90 seconds).
+            <br><br>
+            <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+              <i class="fas fa-sync"></i> Retry Now
+            </button>
+          </div>
+        `;
+      }
       return [];
     }
   }
@@ -360,18 +372,45 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================
+  // SMART UPDATE - Only Re-render When Needed
+  // ========================================
+
+  async function updateAlerts() {
+    const alerts = await fetchAlerts();
+    
+    // Get current alert IDs from the fetched data
+    const newAlertIds = alerts.map(a => a.id);
+    
+    // Check if the alerts have changed
+    const alertsChanged = JSON.stringify(newAlertIds.sort()) !== JSON.stringify(currentAlertIds.sort());
+    
+    if (!alertsChanged && container.children.length > 0) {
+      // No changes, just update the badge and skip re-render
+      updateBadge(alerts.length);
+      return;
+    }
+    
+    // Alerts have changed, do a full render
+    currentAlertIds = newAlertIds;
+    render(alerts);
+  }
+
+  // ========================================
   // RENDER FUNCTION - OPTIMIZED
   // ========================================
 
-  async function render() {
-    container.innerHTML = `
-      <div class="info" style="text-align: center; padding: 20px;">
-        <i class="fas fa-spinner fa-spin"></i> Loading alerts...
-      </div>
-    `;
+  async function render(alertsData = null) {
+    // If no data provided, fetch it
+    const alerts = alertsData || await fetchAlerts();
     
-    const alerts = await fetchAlerts();
-    container.innerHTML = "";
+    // Only show loading on initial render (when container is empty)
+    if (container.children.length === 0) {
+      container.innerHTML = `
+        <div class="info" style="text-align: center; padding: 20px;">
+          <i class="fas fa-spinner fa-spin"></i> Loading alerts...
+        </div>
+      `;
+    }
 
     if (alerts.length === 0) {
       container.innerHTML = `
@@ -382,10 +421,14 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
       updateBadge(0);
+      currentAlertIds = [];
       return;
     }
 
-    // FIRST PASS: Create all cards WITHOUT maps (fast rendering)
+    // Clear container for fresh render
+    container.innerHTML = "";
+
+    // Create all cards
     alerts.forEach((alert) => {
       const lat = parseFloat(alert.latitude);
       const lng = parseFloat(alert.longitude);
@@ -433,9 +476,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     updateBadge(alerts.length);
+    currentAlertIds = alerts.map(a => a.id);
 
-    // Optional: Auto-load the first map after a brief delay
-    if (alerts.length > 0) {
+    // Optional: Auto-load the first map after a brief delay (only on initial load)
+    if (alerts.length > 0 && container.scrollTop === 0) {
       const firstAlert = alerts[0];
       const lat = parseFloat(firstAlert.latitude);
       const lng = parseFloat(firstAlert.longitude);
@@ -456,6 +500,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initial render
   render();
 
-  // Auto-refresh every 5 seconds
-  setInterval(render, 5000);
+  // Smart auto-refresh every 5 seconds (only re-renders if data changed)
+  setInterval(updateAlerts, 5000);
 });
