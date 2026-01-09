@@ -25,6 +25,130 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentAlertData = null;
 
   // ========================================
+  // 🔥 NEW: SSE REAL-TIME CONNECTION
+  // ========================================
+  let eventSource = null;
+  let reconnectAttempts = 0;
+  const maxReconnectAttempts = 5;
+
+  function connectSSE() {
+    // Don't connect if already connected
+    if (eventSource && eventSource.readyState === EventSource.OPEN) {
+      console.log('SSE already connected');
+      return;
+    }
+
+    console.log('🔌 Connecting to SSE...');
+    
+    // Using 'admin' as user_id for admin dashboard
+    eventSource = new EventSource(`${API_BASE}/sse/notifications/admin`, {
+      withCredentials: true
+    });
+
+    eventSource.onopen = () => {
+      console.log('✅ SSE Connected!');
+      reconnectAttempts = 0;
+      
+      // Update connection indicator if it exists
+      const indicator = document.getElementById('sse-indicator');
+      if (indicator) {
+        indicator.textContent = '🟢 Live';
+        indicator.style.color = '#28a745';
+      }
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 SSE Message received:', data);
+
+        if (data.type === 'connected') {
+          console.log('SSE connection confirmed');
+          return;
+        }
+
+        // When new alert is created, refresh instantly
+        if (data.type === 'alert_created' || data.type === 'new_alert') {
+          console.log('🚨 New alert detected - refreshing...');
+          render();
+          showToast('New Fire Alert!', 'A new fire alert has been reported.', 'warning');
+        }
+
+        // When alert is updated
+        if (data.type === 'alert_updated') {
+          console.log('🔄 Alert updated - refreshing...');
+          render();
+        }
+
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('❌ SSE Error:', error);
+      
+      const indicator = document.getElementById('sse-indicator');
+      if (indicator) {
+        indicator.textContent = '🔴 Disconnected';
+        indicator.style.color = '#dc3545';
+      }
+
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      // Reconnect with exponential backoff
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        console.log(`🔄 Reconnecting in ${delay/1000}s... (Attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+        setTimeout(connectSSE, delay);
+      } else {
+        console.log('⚠️ Max reconnection attempts reached. Using polling fallback.');
+      }
+    };
+  }
+
+  // Toast notification helper
+  function showToast(title, message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'warning' ? '#ff9800' : '#2196F3'};
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 10000;
+      max-width: 300px;
+    `;
+    
+    toast.innerHTML = `<strong>${title}</strong><br><span style="font-size: 14px;">${message}</span>`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (eventSource) {
+      console.log('🔌 Closing SSE connection...');
+      eventSource.close();
+    }
+  });
+
+  // 🔥 START SSE CONNECTION
+  connectSSE();
+
+  // ========================================
   // MODAL FUNCTIONS (Global Scope)
   // ========================================
 
@@ -456,6 +580,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initial render
   render();
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 30 seconds (fallback if SSE fails)
   setInterval(render, 30000);
 });
