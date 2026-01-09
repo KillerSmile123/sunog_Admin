@@ -120,39 +120,7 @@ async function updateDashboard() {
   }
 }
 
-// -------- Fetch and Draw Shortest Route --------
-let currentRouteLine = null;
-let startMarker = null;
-let endMarker = null;
 
-function fetchAndDrawRoute(start, end) {
-  fetch(`${API_BASE}/get-shortest-route?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`, {
-    credentials: 'include'
-  })
-    .then(res => res.json())
-    .then(coords => {
-      if (!coords || coords.error) {
-        console.error('No route found or error:', coords.error);
-        return;
-      }
-
-      // Remove previous route if exists
-      if (currentRouteLine) map.removeLayer(currentRouteLine);
-      if (startMarker) map.removeLayer(startMarker);
-      if (endMarker) map.removeLayer(endMarker);
-
-      // Draw new polyline
-      currentRouteLine = L.polyline(coords, {color: 'red'}).addTo(map);
-
-      // Fit map to route
-      map.fitBounds(currentRouteLine.getBounds());
-
-      // Add markers
-      startMarker = L.marker(coords[0]).addTo(map).bindPopup('Fire Station').openPopup();
-      endMarker = L.marker(coords[coords.length - 1]).addTo(map).bindPopup('Accident').openPopup();
-    })
-    .catch(err => console.error('Fetch error:', err));
-}
 
 // Initial load
 updateDashboard();
