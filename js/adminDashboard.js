@@ -25,6 +25,149 @@ if (toggleBtn) {
   });
 }
 
+// -------- Alert Markers Management --------
+let alertMarkers = []; // Store all alert markers
+
+// Function to clear all alert markers from map
+function clearAlertMarkers() {
+  alertMarkers.forEach(marker => map.removeLayer(marker));
+  alertMarkers = [];
+}
+
+// Function to display all alerts on the map
+async function displayAlertsOnMap(alerts) {
+  // Clear existing markers
+  clearAlertMarkers();
+
+  if (!alerts || alerts.length === 0) {
+    console.log('No alerts to display on map');
+    return;
+  }
+
+  // Add marker for each alert
+  for (const alert of alerts) {
+    const coords = await parseAlertLocation(alert);
+    
+    if (coords) {
+      // Create marker with red icon for active alerts
+      const marker = L.marker([coords.lat, coords.lng], {
+        icon: L.icon({
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        })
+      }).addTo(map);
+
+      // Create popup content
+      const popupContent = `
+        <div style="min-width: 200px;">
+          <h4 style="margin: 0 0 8px 0; color: #ff4444;">Alert #${alert.id || 'N/A'}</h4>
+          <p style="margin: 4px 0;"><strong>Type:</strong> ${alert.type || 'Emergency'}</p>
+          <p style="margin: 4px 0;"><strong>Description:</strong> ${alert.description || 'No description'}</p>
+          <p style="margin: 4px 0;"><strong>Location:</strong> ${alert.location || 'Unknown'}</p>
+          <p style="margin: 4px 0;"><strong>Time:</strong> ${new Date(alert.timestamp).toLocaleString()}</p>
+          <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: orange;">Pending</span></p>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      alertMarkers.push(marker);
+    }
+  }
+
+  // Fit map to show all markers if there are any
+  if (alertMarkers.length > 0) {
+    const group = L.featureGroup(alertMarkers);
+    map.fitBounds(group.getBounds().pad(0.1));
+  }
+
+  console.log(`Displayed ${alertMarkers.length} alerts on map`);
+}
+
+// Parse alert location to coordinates
+async function parseAlertLocation(alert) {
+  try {
+    // Check if alert has direct coordinates
+    if (alert.latitude && alert.longitude) {
+      return {
+        lat: parseFloat(alert.latitude),
+        lng: parseFloat(alert.longitude)
+      };
+    }
+
+    // Check if location is in "lat,lng" format
+    if (alert.location && typeof alert.location === 'string' && alert.location.includes(',')) {
+      const parts = alert.location.split(',');
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0].trim());
+        const lng = parseFloat(parts[1].trim());
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+    }
+
+    // Try to geocode the location name
+    if (alert.location && typeof alert.location === 'string') {
+      return await geocodeLocation(alert.location);
+    }
+
+    // Default to center of Molave if no location found
+    console.warn('No valid location for alert:', alert);
+    return { lat: 8.4859, lng: 123.8048 }; // Molave center
+
+  } catch (error) {
+    console.error('Error parsing alert location:', error);
+    return { lat: 8.4859, lng: 123.8048 }; // Molave center
+  }
+}
+
+// Geocode location name to coordinates
+async function geocodeLocation(locationName) {
+  try {
+    // Common locations in Molave
+    const knownLocations = {
+      'Molave': { lat: 8.4859, lng: 123.8048 },
+      'Fire Station': { lat: 8.4859, lng: 123.8048 },
+      'Town Plaza': { lat: 8.4859, lng: 123.8048 },
+      'Municipal Hall': { lat: 8.4859, lng: 123.8048 }
+    };
+
+    if (knownLocations[locationName]) {
+      return knownLocations[locationName];
+    }
+
+    // Use Nominatim geocoding service
+    const query = encodeURIComponent(`${locationName}, Molave, Zamboanga del Sur, Philippines`);
+    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'FireAlertSystem/1.0'
+      }
+    });
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+
+    // Fallback to Molave center
+    console.warn(`Could not geocode ${locationName}, using Molave center`);
+    return { lat: 8.4859, lng: 123.8048 };
+
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return { lat: 8.4859, lng: 123.8048 };
+  }
+}
+
 // -------- Fetch alerts from backend --------
 async function fetchAlerts(retryCount = 0) {
   try {
@@ -113,14 +256,9 @@ async function updateDashboard() {
     });
   }
 
-  // Draw route to latest active alert (if exists)
-  if (active.length > 0) {
-    const latestAlert = active[0]; // newest alert
-    fetchAndDrawRoute('FireStation', latestAlert.location || 'Accident');
-  }
+  // Display all active alerts on map
+  displayAlertsOnMap(active);
 }
-
-
 
 // Initial load
 updateDashboard();
