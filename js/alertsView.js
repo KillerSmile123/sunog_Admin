@@ -51,70 +51,75 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.classList.add('active');
   };
 
+  window.closeResolveModal = () => {
+    document.getElementById('resolve-modal').classList.remove('active');
+    currentAlertData = null;
+  };
+
   window.sendResponse = async () => {
-  // Disable button immediately to prevent double-clicks
-  const sendBtn = document.querySelector('#respond-modal .btn-primary');
-  if (sendBtn && sendBtn.disabled) {
-    console.log('Already sending, ignoring...');
-    return;
-  }
-  
-  if (sendBtn) {
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-  }
-  
-  if (!currentAlertData?.id) {
-    console.error('Error: currentAlertData is null');
-    alert('Error: Alert data not found.');
-    closeRespondModal();
-    if (sendBtn) {
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+    // Disable button immediately to prevent double-clicks
+    const sendBtn = document.querySelector('#respond-modal .btn-primary');
+    if (sendBtn && sendBtn.disabled) {
+      console.log('Already sending, ignoring...');
+      return;
     }
-    return;
-  }
-  
-  const message = document.getElementById('response-message').value.trim();
-  if (!message) {
-    alert('Please enter a response message');
-    if (sendBtn) {
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
-    }
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/respond_alert`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        alert_id: currentAlertData.id,
-        message: message
-      })
-    });
-
-    if (res.ok) {
-      closeRespondModal();
-      alert('Response sent successfully! User has been notified.');
-      render();
-    } else {
-      throw new Error('Failed to send response');
-    }
-  } catch (error) {
-    console.error('Error sending response:', error);
-    alert('Failed to send response. Please try again.');
     
     if (sendBtn) {
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     }
-  }
-};
+    
+    if (!currentAlertData?.id) {
+      console.error('Error: currentAlertData is null');
+      alert('Error: Alert data not found.');
+      closeRespondModal();
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+      }
+      return;
+    }
+    
+    const message = document.getElementById('response-message').value.trim();
+    if (!message) {
+      alert('Please enter a response message');
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+      }
+      return;
+    }
 
-window.markAsResolved = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/respond_alert`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alert_id: currentAlertData.id,
+          message: message
+        })
+      });
+
+      if (res.ok) {
+        closeRespondModal();
+        alert('Response sent successfully! User has been notified.');
+        render();
+      } else {
+        throw new Error('Failed to send response');
+      }
+    } catch (error) {
+      console.error('Error sending response:', error);
+      alert('Failed to send response. Please try again.');
+      
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
+      }
+    }
+  };
+
+  window.markAsResolved = async () => {
     // Enhanced null check with logging
     if (!currentAlertData?.id) {
       console.error('Error: currentAlertData is null or missing id in markAsResolved');
@@ -199,6 +204,31 @@ window.markAsResolved = async () => {
   };
 
   // ========================================
+  // LAZY MAP LOADING
+  // ========================================
+
+  window.loadMap = (mapId, lat, lng) => {
+    const mapDiv = document.getElementById(mapId);
+    mapDiv.innerHTML = '<div style="padding:20px;text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading map...</div>';
+    
+    setTimeout(() => {
+      try {
+        const map = L.map(mapId).setView([lat, lng], 14);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+        }).addTo(map);
+        L.marker([fireStation.lat, fireStation.lng])
+          .addTo(map)
+          .bindPopup("Fire Station");
+        L.marker([lat, lng]).addTo(map).bindPopup("Incident Location");
+      } catch (mapError) {
+        console.error('Map initialization error:', mapError);
+        document.getElementById(mapId).innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Map could not be loaded</div>';
+      }
+    }, 100);
+  };
+
+  // ========================================
   // API FUNCTIONS
   // ========================================
 
@@ -206,10 +236,16 @@ window.markAsResolved = async () => {
     const maxRetries = 3;
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+      
       const response = await fetch(`${API_BASE}/get_alerts`, {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -230,7 +266,7 @@ window.markAsResolved = async () => {
         <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
           <i class="fas fa-exclamation-triangle"></i> 
           <strong>Connection Error</strong><br>
-          Unable to load alerts. The server might be starting up.
+          Unable to load alerts. The server might be starting up (this can take 60-90 seconds).
           <br><br>
           <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
             <i class="fas fa-sync"></i> Retry Now
@@ -292,14 +328,14 @@ window.markAsResolved = async () => {
 
     if (photoURL) {
       return `<div class="media-preview">
-        <img src="${photoURL}" alt="Incident Photo" class="media" 
+        <img src="${photoURL}" alt="Incident Photo" class="media" loading="lazy"
              onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'"
              onload="console.log('✅ Image loaded successfully')">
       </div>`;
     }
     if (videoURL) {
       return `<div class="media-preview">
-        <video controls src="${videoURL}" class="media" 
+        <video controls src="${videoURL}" class="media" preload="metadata"
                onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
       </div>`;
     }
@@ -324,7 +360,7 @@ window.markAsResolved = async () => {
   }
 
   // ========================================
-  // RENDER FUNCTION
+  // RENDER FUNCTION - OPTIMIZED
   // ========================================
 
   async function render() {
@@ -349,6 +385,7 @@ window.markAsResolved = async () => {
       return;
     }
 
+    // FIRST PASS: Create all cards WITHOUT maps (fast rendering)
     alerts.forEach((alert) => {
       const lat = parseFloat(alert.latitude);
       const lng = parseFloat(alert.longitude);
@@ -373,7 +410,13 @@ window.markAsResolved = async () => {
         ${mediaHTML(alert)}
         <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
         <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
-        <div id="${mapId}" style="width:100%;height:200px;border-radius:8px;margin-top:10px;"></div>
+        <div id="${mapId}" style="width:100%;height:200px;border-radius:8px;margin-top:10px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+          ${hasCoords ? `
+            <button onclick="loadMap('${mapId}', ${lat}, ${lng})" style="padding:10px 20px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+              <i class="fas fa-map-marked-alt"></i> Load Map
+            </button>
+          ` : '<div style="color:#6c757d;">Invalid coordinates</div>'}
+        </div>
         <div class="action-buttons">
           <button class="action-btn btn-respond" onclick="openRespondModal('${alert.id}', '${reporterName.replace(/'/g, "\\'")}', '${barangay.replace(/'/g, "\\'")}')">
             <i class="fas fa-reply"></i> Respond
@@ -387,28 +430,23 @@ window.markAsResolved = async () => {
         </div>
       `;
       container.appendChild(card);
-
-      // Initialize map if coordinates are valid
-      if (hasCoords && window.L) {
-        setTimeout(() => {
-          try {
-            const map = L.map(mapId).setView([lat, lng], 14);
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-              attribution: "© OpenStreetMap contributors",
-            }).addTo(map);
-            L.marker([fireStation.lat, fireStation.lng])
-              .addTo(map)
-              .bindPopup("Fire Station");
-            L.marker([lat, lng]).addTo(map).bindPopup("Incident Location");
-          } catch (mapError) {
-            console.error('Map initialization error:', mapError);
-            document.getElementById(mapId).innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Map could not be loaded</div>';
-          }
-        }, 100);
-      }
     });
 
     updateBadge(alerts.length);
+
+    // Optional: Auto-load the first map after a brief delay
+    if (alerts.length > 0) {
+      const firstAlert = alerts[0];
+      const lat = parseFloat(firstAlert.latitude);
+      const lng = parseFloat(firstAlert.longitude);
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+      
+      if (hasCoords) {
+        setTimeout(() => {
+          loadMap("map-" + firstAlert.id, lat, lng);
+        }, 500);
+      }
+    }
   }
 
   // ========================================
