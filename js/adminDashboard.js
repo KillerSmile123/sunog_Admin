@@ -125,5 +125,5 @@ async function updateDashboard() {
 // Initial load
 updateDashboard();
 
-// Auto-refresh every 30 seconds
-setInterval(updateDashboard, 30000);
+// Auto-refresh every 5 seconds
+setInterval(updateDashboard, 5000);
