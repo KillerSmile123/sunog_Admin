@@ -26,12 +26,19 @@ if (toggleBtn) {
 }
 
 // -------- Fetch alerts from backend --------
-async function fetchAlerts() {
+async function fetchAlerts(retryCount = 0) {
   try {
+    const controller = new AbortController();
+    // Increase timeout to 90 seconds for Render spin-up
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    
     const response = await fetch(`${API_BASE}/get_alerts`, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -40,7 +47,15 @@ async function fetchAlerts() {
     const data = await response.json();
     return data.alerts || [];
   } catch (error) {
-    console.error('Error fetching alerts:', error);
+    console.error('Error fetching alerts (attempt ' + (retryCount + 1) + '):', error);
+    
+    // Retry once if it failed (for server wake-up)
+    if (retryCount === 0 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+      console.log('⏰ Server might be waking up, retrying in 3 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return fetchAlerts(1); // Retry once
+    }
+    
     return [];
   }
 }
