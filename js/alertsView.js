@@ -456,6 +456,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initial render
   render();
 
-  // Auto-refresh every 30 seconds
-  setInterval(render, 30000);
+  // Auto-refresh every 5 seconds
+  setInterval(render, 5000);
 });
