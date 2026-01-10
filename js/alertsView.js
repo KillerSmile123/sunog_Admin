@@ -1,34 +1,24 @@
-// alertsView.js - Admin Alerts View Logic
-// AUTHENTICATION CHECK
-// ========================================
+// alertsView.js - Admin Alerts View with Multiple Images Support
 
-// Use centralized auth helper if available
+// AUTHENTICATION CHECK
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
 } else {
-  // Fallback: verify session with backend once
   fetch(`${API_BASE}/auth/verify`, { credentials: 'include' })
     .then(res => { if (!res.ok) window.location.href = 'adminLogin.html'; })
     .catch(() => { window.location.href = 'adminLogin.html'; });
 }
-
-// ========================================
-// MAIN APPLICATION
-// ========================================
 
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("alerts-container");
   const badgeEl = document.querySelector(".badge");
   const fireStation = { lat: 8.476776975907958, lng: 123.7968330650085 };
 
-  // Current alert data for modal operations
   let currentAlertData = null;
-  
-  // Track current alerts to avoid unnecessary re-renders
   let currentAlertIds = [];
 
   // ========================================
-  // MODAL FUNCTIONS (Global Scope)
+  // MODAL FUNCTIONS
   // ========================================
 
   window.openRespondModal = (alertId, reporterName, barangay) => {
@@ -60,12 +50,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   window.sendResponse = async () => {
-    // Disable button immediately to prevent double-clicks
     const sendBtn = document.querySelector('#respond-modal .btn-primary');
-    if (sendBtn && sendBtn.disabled) {
-      console.log('Already sending, ignoring...');
-      return;
-    }
+    if (sendBtn && sendBtn.disabled) return;
     
     if (sendBtn) {
       sendBtn.disabled = true;
@@ -73,7 +59,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     if (!currentAlertData?.id) {
-      console.error('Error: currentAlertData is null');
       alert('Error: Alert data not found.');
       closeRespondModal();
       if (sendBtn) {
@@ -123,9 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   window.markAsResolved = async () => {
-    // Enhanced null check with logging
     if (!currentAlertData?.id) {
-      console.error('Error: currentAlertData is null or missing id in markAsResolved');
       alert('Error: Alert data not found. Please close and reopen the modal.');
       closeResolveModal();
       return;
@@ -137,14 +120,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Disable button to prevent double-clicks
     const resolveBtn = document.querySelector('#resolve-modal button[onclick*="markAsResolved"]');
     if (resolveBtn) {
       resolveBtn.disabled = true;
       resolveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
     }
 
-    // Store ID before clearing to prevent race conditions
     const alertId = currentAlertData.id;
 
     try {
@@ -159,14 +140,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (res.ok) {
-        closeResolveModal(); // This sets currentAlertData to null
+        closeResolveModal();
         alert('Alert marked as resolved! User has been notified.');
         const card = document.querySelector(`[data-id="${alertId}"]`);
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
-        
-        // Update currentAlertIds
         currentAlertIds = currentAlertIds.filter(id => id !== alertId);
       } else {
         throw new Error('Failed to resolve alert');
@@ -175,7 +154,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error('Error resolving alert:', error);
       alert('Failed to resolve alert. Please try again.');
       
-      // Re-enable button on error
       if (resolveBtn) {
         resolveBtn.disabled = false;
         resolveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark as Resolved';
@@ -200,8 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
-        
-        // Update currentAlertIds
         currentAlertIds = currentAlertIds.filter(id => id !== alertId);
       } else {
         throw new Error('Failed to delete alert');
@@ -246,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
       
       const response = await fetch(`${API_BASE}/get_alerts`, {
         method: 'GET',
@@ -266,12 +242,10 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, error);
       
       if (retryCount < maxRetries - 1) {
-        console.log(`Retrying in ${(retryCount + 1) * 2} seconds...`);
         await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
         return fetchAlerts(retryCount + 1);
       }
       
-      // Only show error if container is empty (initial load failed)
       if (container.children.length === 0) {
         container.innerHTML = `
           <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
@@ -326,36 +300,103 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
+  // ✅ NEW: Handle multiple images with gallery
   function mediaHTML(alert) {
-    function getMediaURL(url) {
-      if (!url) return null;
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        return url;
+    // Parse photo_urls (could be array or single URL)
+    let photoUrls = [];
+    if (alert.photo_urls && Array.isArray(alert.photo_urls)) {
+      photoUrls = alert.photo_urls;
+    } else if (alert.photo_url) {
+      photoUrls = [alert.photo_url];
+    }
+
+    const videoURL = alert.video_url;
+
+    let html = '';
+
+    // ✅ Display multiple photos in a gallery
+    if (photoUrls.length > 0) {
+      html += `<div class="media-gallery" style="margin: 10px 0;">`;
+      
+      if (photoUrls.length === 1) {
+        // Single image - full width
+        html += `
+          <div class="media-preview">
+            <img src="${photoUrls[0]}" alt="Incident Photo" class="media" loading="lazy"
+                 onclick="openImageModal('${photoUrls[0]}')"
+                 style="cursor: pointer;"
+                 onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'">
+          </div>
+        `;
+      } else {
+        // Multiple images - grid layout
+        html += `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+        `;
+        photoUrls.forEach((url, index) => {
+          html += `
+            <div class="media-preview" style="position: relative;">
+              <img src="${url}" alt="Incident Photo ${index + 1}" 
+                   style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                   onclick="openImageModal('${url}')"
+                   loading="lazy"
+                   onerror="this.style.display='none'">
+              <div style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                ${index + 1}/${photoUrls.length}
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
       }
-      return null;
-    }
-
-    const photoURL = getMediaURL(alert.photo_url);
-    const videoURL = getMediaURL(alert.video_url);
-
-    if (photoURL) {
-      return `<div class="media-preview">
-        <img src="${photoURL}" alt="Incident Photo" class="media" loading="lazy"
-             onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'"
-             onload="console.log('✅ Image loaded successfully')">
-      </div>`;
-    }
-    if (videoURL) {
-      return `<div class="media-preview">
-        <video controls src="${videoURL}" class="media" preload="metadata"
-               onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
-      </div>`;
+      
+      html += `</div>`;
     }
     
-    return `<div class="media-preview" style="padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;margin:10px 0;">
-      📷 No photo or video submitted
-    </div>`;
+    // Display video
+    if (videoURL) {
+      html += `
+        <div class="media-preview">
+          <video controls src="${videoURL}" class="media" preload="metadata"
+                 onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
+        </div>
+      `;
+    }
+    
+    if (!photoUrls.length && !videoURL) {
+      html = `<div class="media-preview" style="padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;margin:10px 0;">
+        📷 No photo or video submitted
+      </div>`;
+    }
+
+    return html;
   }
+
+  // ✅ Image modal for full-screen view
+  window.openImageModal = (imageUrl) => {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      cursor: pointer;
+    `;
+    
+    modal.innerHTML = `
+      <img src="${imageUrl}" style="max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+      <button style="position: absolute; top: 20px; right: 20px; background: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">×</button>
+    `;
+    
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+  };
 
   function haversineDistance(coord1, coord2) {
     const toRad = (deg) => (deg * Math.PI) / 180;
@@ -372,38 +413,30 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ========================================
-  // SMART UPDATE - Only Re-render When Needed
+  // SMART UPDATE
   // ========================================
 
   async function updateAlerts() {
     const alerts = await fetchAlerts();
-    
-    // Get current alert IDs from the fetched data
     const newAlertIds = alerts.map(a => a.id);
-    
-    // Check if the alerts have changed
     const alertsChanged = JSON.stringify(newAlertIds.sort()) !== JSON.stringify(currentAlertIds.sort());
     
     if (!alertsChanged && container.children.length > 0) {
-      // No changes, just update the badge and skip re-render
       updateBadge(alerts.length);
       return;
     }
     
-    // Alerts have changed, do a full render
     currentAlertIds = newAlertIds;
     render(alerts);
   }
 
   // ========================================
-  // RENDER FUNCTION - OPTIMIZED
+  // RENDER FUNCTION
   // ========================================
 
   async function render(alertsData = null) {
-    // If no data provided, fetch it
     const alerts = alertsData || await fetchAlerts();
     
-    // Only show loading on initial render (when container is empty)
     if (container.children.length === 0) {
       container.innerHTML = `
         <div class="info" style="text-align: center; padding: 20px;">
@@ -425,10 +458,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Clear container for fresh render
     container.innerHTML = "";
 
-    // Create all cards
     alerts.forEach((alert) => {
       const lat = parseFloat(alert.latitude);
       const lng = parseFloat(alert.longitude);
@@ -478,7 +509,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateBadge(alerts.length);
     currentAlertIds = alerts.map(a => a.id);
 
-    // Optional: Auto-load the first map after a brief delay (only on initial load)
     if (alerts.length > 0 && container.scrollTop === 0) {
       const firstAlert = alerts[0];
       const lat = parseFloat(firstAlert.latitude);
@@ -497,9 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // INITIALIZE
   // ========================================
 
-  // Initial render
   render();
-
-  // Smart auto-refresh every 5 seconds (only re-renders if data changed)
   setInterval(updateAlerts, 5000);
 });
