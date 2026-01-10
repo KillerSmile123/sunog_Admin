@@ -300,9 +300,9 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 
-  // ✅ NEW: Handle multiple images with gallery
+  // ✅ Handle multiple images and videos
   function mediaHTML(alert) {
-    // Parse photo_urls (could be array or single URL)
+    // Parse photo_urls
     let photoUrls = [];
     if (alert.photo_urls && Array.isArray(alert.photo_urls)) {
       photoUrls = alert.photo_urls;
@@ -310,7 +310,13 @@ document.addEventListener("DOMContentLoaded", () => {
       photoUrls = [alert.photo_url];
     }
 
-    const videoURL = alert.video_url;
+    // Parse video_urls
+    let videoUrls = [];
+    if (alert.video_urls && Array.isArray(alert.video_urls)) {
+      videoUrls = alert.video_urls;
+    } else if (alert.video_url) {
+      videoUrls = [alert.video_url];
+    }
 
     let html = '';
 
@@ -319,7 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
       html += `<div class="media-gallery" style="margin: 10px 0;">`;
       
       if (photoUrls.length === 1) {
-        // Single image - full width
         html += `
           <div class="media-preview">
             <img src="${photoUrls[0]}" alt="Incident Photo" class="media" loading="lazy"
@@ -329,14 +334,11 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `;
       } else {
-        // Multiple images - grid layout
-        html += `
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-        `;
+        html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">`;
         photoUrls.forEach((url, index) => {
           html += `
             <div class="media-preview" style="position: relative;">
-              <img src="${url}" alt="Incident Photo ${index + 1}" 
+              <img src="${url}" alt="Photo ${index + 1}" 
                    style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
                    onclick="openImageModal('${url}')"
                    loading="lazy"
@@ -349,23 +351,29 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         html += `</div>`;
       }
-      
       html += `</div>`;
     }
     
-    // Display video
-    if (videoURL) {
-      html += `
-        <div class="media-preview">
-          <video controls src="${videoURL}" class="media" preload="metadata"
-                 onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
-        </div>
-      `;
+    // ✅ Display multiple videos
+    if (videoUrls.length > 0) {
+      html += `<div class="video-gallery" style="margin: 10px 0;">`;
+      videoUrls.forEach((url, index) => {
+        html += `
+          <div class="media-preview" style="margin-bottom: 10px;">
+            <div style="background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 12px;">
+              <i class="fas fa-video"></i> Video ${index + 1}/${videoUrls.length}
+            </div>
+            <video controls src="${url}" class="media" preload="metadata" style="width: 100%; border-radius: 0 0 8px 8px;"
+                   onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
+          </div>
+        `;
+      });
+      html += `</div>`;
     }
     
-    if (!photoUrls.length && !videoURL) {
+    if (!photoUrls.length && !videoUrls.length) {
       html = `<div class="media-preview" style="padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;margin:10px 0;">
-        📷 No photo or video submitted
+        📷 No media submitted
       </div>`;
     }
 
