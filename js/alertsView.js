@@ -1,4 +1,4 @@
-// ========================================
+// alertsView.js - Admin Alerts View Logic
 // AUTHENTICATION CHECK
 // ========================================
 

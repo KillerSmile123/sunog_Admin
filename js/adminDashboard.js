@@ -1,5 +1,3 @@
-// API_BASE is defined in config.js
-
 // Use centralized auth helper if available
 if (typeof AdminAuth !== 'undefined') {
   AdminAuth.requireAuth();
@@ -25,18 +23,15 @@ if (toggleBtn) {
   });
 }
 
-// -------- Alert Markers Management --------
-let alertMarkers = []; // Store all alert markers
+// Alert Markers Management
+let alertMarkers = [];
 
-// Function to clear all alert markers from map
 function clearAlertMarkers() {
   alertMarkers.forEach(marker => map.removeLayer(marker));
   alertMarkers = [];
 }
 
-// Function to display all alerts on the map
 async function displayAlertsOnMap(alerts) {
-  // Clear existing markers
   clearAlertMarkers();
 
   if (!alerts || alerts.length === 0) {
@@ -44,12 +39,10 @@ async function displayAlertsOnMap(alerts) {
     return;
   }
 
-  // Add marker for each alert
   for (const alert of alerts) {
     const coords = await parseAlertLocation(alert);
     
     if (coords) {
-      // Create marker with red icon for active alerts
       const marker = L.marker([coords.lat, coords.lng], {
         icon: L.icon({
           iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
@@ -61,7 +54,6 @@ async function displayAlertsOnMap(alerts) {
         })
       }).addTo(map);
 
-      // Create popup content
       const popupContent = `
         <div style="min-width: 200px;">
           <h4 style="margin: 0 0 8px 0; color: #ff4444;">Alert #${alert.id || 'N/A'}</h4>
@@ -78,7 +70,6 @@ async function displayAlertsOnMap(alerts) {
     }
   }
 
-  // Fit map to show all markers if there are any
   if (alertMarkers.length > 0) {
     const group = L.featureGroup(alertMarkers);
     map.fitBounds(group.getBounds().pad(0.1));
@@ -87,10 +78,8 @@ async function displayAlertsOnMap(alerts) {
   console.log(`Displayed ${alertMarkers.length} alerts on map`);
 }
 
-// Parse alert location to coordinates
 async function parseAlertLocation(alert) {
   try {
-    // Check if alert has direct coordinates
     if (alert.latitude && alert.longitude) {
       return {
         lat: parseFloat(alert.latitude),
@@ -98,7 +87,6 @@ async function parseAlertLocation(alert) {
       };
     }
 
-    // Check if location is in "lat,lng" format
     if (alert.location && typeof alert.location === 'string' && alert.location.includes(',')) {
       const parts = alert.location.split(',');
       if (parts.length === 2) {
@@ -110,25 +98,21 @@ async function parseAlertLocation(alert) {
       }
     }
 
-    // Try to geocode the location name
     if (alert.location && typeof alert.location === 'string') {
       return await geocodeLocation(alert.location);
     }
 
-    // Default to center of Molave if no location found
     console.warn('No valid location for alert:', alert);
-    return { lat: 8.4859, lng: 123.8048 }; // Molave center
+    return { lat: 8.4859, lng: 123.8048 };
 
   } catch (error) {
     console.error('Error parsing alert location:', error);
-    return { lat: 8.4859, lng: 123.8048 }; // Molave center
+    return { lat: 8.4859, lng: 123.8048 };
   }
 }
 
-// Geocode location name to coordinates
 async function geocodeLocation(locationName) {
   try {
-    // Common locations in Molave
     const knownLocations = {
       'Molave': { lat: 8.4859, lng: 123.8048 },
       'Fire Station': { lat: 8.4859, lng: 123.8048 },
@@ -140,7 +124,6 @@ async function geocodeLocation(locationName) {
       return knownLocations[locationName];
     }
 
-    // Use Nominatim geocoding service
     const query = encodeURIComponent(`${locationName}, Molave, Zamboanga del Sur, Philippines`);
     const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
     
@@ -158,7 +141,6 @@ async function geocodeLocation(locationName) {
       };
     }
 
-    // Fallback to Molave center
     console.warn(`Could not geocode ${locationName}, using Molave center`);
     return { lat: 8.4859, lng: 123.8048 };
 
@@ -168,11 +150,10 @@ async function geocodeLocation(locationName) {
   }
 }
 
-// -------- Fetch alerts from backend --------
+// ✅ FETCH ALERTS FROM BACKEND ONLY
 async function fetchAlerts(retryCount = 0) {
   try {
     const controller = new AbortController();
-    // Increase timeout to 90 seconds for Render spin-up
     const timeoutId = setTimeout(() => controller.abort(), 90000);
     
     const response = await fetch(`${API_BASE}/get_alerts`, {
@@ -188,35 +169,47 @@ async function fetchAlerts(retryCount = 0) {
     }
 
     const data = await response.json();
+    console.log(`✅ Fetched ${data.alerts?.length || 0} alerts from backend`);
     return data.alerts || [];
   } catch (error) {
     console.error('Error fetching alerts (attempt ' + (retryCount + 1) + '):', error);
     
-    // Retry once if it failed (for server wake-up)
     if (retryCount === 0 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
       console.log('⏰ Server might be waking up, retrying in 3 seconds...');
       await new Promise(resolve => setTimeout(resolve, 3000));
-      return fetchAlerts(1); // Retry once
+      return fetchAlerts(1);
     }
     
     return [];
   }
 }
 
-async function updateDashboard() {
-  const active = await fetchAlerts();
-  let resolved = [];
+// ✅ FETCH RESOLVED ALERTS FROM BACKEND ONLY (NO LOCALSTORAGE FALLBACK)
+async function fetchResolvedAlerts() {
   try {
-    const r = await fetch(`${API_BASE}/get_resolved_alerts`, { method: 'GET', credentials: 'include' });
-    if (r.ok) {
-      const data = await r.json();
-      resolved = data.resolved || [];
-    } else {
-      resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+    const response = await fetch(`${API_BASE}/get_resolved_alerts`, { 
+      method: 'GET', 
+      credentials: 'include' 
+    });
+    
+    if (!response.ok) {
+      console.warn('Failed to fetch resolved alerts from backend');
+      return [];
     }
-  } catch (err) {
-    resolved = JSON.parse(localStorage.getItem('resolvedAlerts') || '[]');
+    
+    const data = await response.json();
+    console.log(`✅ Fetched ${data.resolved?.length || 0} resolved alerts from backend`);
+    return data.resolved || [];
+  } catch (error) {
+    console.error('Error fetching resolved alerts:', error);
+    return [];
   }
+}
+
+async function updateDashboard() {
+  // ✅ Fetch all data from backend
+  const active = await fetchAlerts();
+  const resolved = await fetchResolvedAlerts();
   const total = active.length + resolved.length;
 
   // Update stat cards
@@ -232,7 +225,7 @@ async function updateDashboard() {
   const badge = document.querySelector(".badge");
   if (badge) badge.textContent = active.length;
 
-  // Fill recent alerts (last 5 active + resolved combined)
+  // Fill recent alerts table
   const tableBody = document.getElementById("recentAlertsTable");
   if (tableBody) {
     tableBody.innerHTML = "";
