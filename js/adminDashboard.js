@@ -1,260 +1,147 @@
-// Use centralized auth helper if available
-if (typeof AdminAuth !== 'undefined') {
-  AdminAuth.requireAuth();
-} else {
-  fetch(`${API_BASE}/auth/verify`, { credentials: 'include' })
-    .then(res => { if (!res.ok) window.location.href = 'adminLogin.html'; })
-    .catch(() => { window.location.href = 'adminLogin.html'; });
-}
+// notificationAdmin.js
+// ✅ Use the correct API base from config
+const NOTIFICATION_API_BASE = API_BASE;
 
-// Map init
-var map = L.map('map').setView([8.4859, 123.8048], 13);
+// ========================================
+// NOTIFICATION SENDER (FIXED TIMESTAMPS)
+// ========================================
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
-
-// Dark mode toggle
-const toggleBtn = document.getElementById('toggleTheme');
-if (toggleBtn) {
-  toggleBtn.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    toggleBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-  });
-}
-
-// Alert Markers Management
-let alertMarkers = [];
-
-function clearAlertMarkers() {
-  alertMarkers.forEach(marker => map.removeLayer(marker));
-  alertMarkers = [];
-}
-
-async function displayAlertsOnMap(alerts) {
-  clearAlertMarkers();
-
-  if (!alerts || alerts.length === 0) {
-    console.log('No alerts to display on map');
-    return;
-  }
-
-  for (const alert of alerts) {
-    const coords = await parseAlertLocation(alert);
-    
-    if (coords) {
-      const marker = L.marker([coords.lat, coords.lng], {
-        icon: L.icon({
-          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        })
-      }).addTo(map);
-
-      const popupContent = `
-        <div style="min-width: 200px;">
-          <h4 style="margin: 0 0 8px 0; color: #ff4444;">Alert #${alert.id || 'N/A'}</h4>
-          <p style="margin: 4px 0;"><strong>Type:</strong> ${alert.type || 'Emergency'}</p>
-          <p style="margin: 4px 0;"><strong>Description:</strong> ${alert.description || 'No description'}</p>
-          <p style="margin: 4px 0;"><strong>Location:</strong> ${alert.location || 'Unknown'}</p>
-          <p style="margin: 4px 0;"><strong>Time:</strong> ${new Date(alert.timestamp).toLocaleString()}</p>
-          <p style="margin: 4px 0;"><strong>Status:</strong> <span style="color: orange;">Pending</span></p>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-      alertMarkers.push(marker);
-    }
-  }
-
-  if (alertMarkers.length > 0) {
-    const group = L.featureGroup(alertMarkers);
-    map.fitBounds(group.getBounds().pad(0.1));
-  }
-
-  console.log(`Displayed ${alertMarkers.length} alerts on map`);
-}
-
-async function parseAlertLocation(alert) {
+// Send notification to specific user
+async function sendNotificationToUser(userId, title, message, type = 'info', extraData = {}) {
   try {
-    if (alert.latitude && alert.longitude) {
-      return {
-        lat: parseFloat(alert.latitude),
-        lng: parseFloat(alert.longitude)
-      };
-    }
-
-    if (alert.location && typeof alert.location === 'string' && alert.location.includes(',')) {
-      const parts = alert.location.split(',');
-      if (parts.length === 2) {
-        const lat = parseFloat(parts[0].trim());
-        const lng = parseFloat(parts[1].trim());
-        if (!isNaN(lat) && !isNaN(lng)) {
-          return { lat, lng };
-        }
-      }
-    }
-
-    if (alert.location && typeof alert.location === 'string') {
-      return await geocodeLocation(alert.location);
-    }
-
-    console.warn('No valid location for alert:', alert);
-    return { lat: 8.4859, lng: 123.8048 };
-
-  } catch (error) {
-    console.error('Error parsing alert location:', error);
-    return { lat: 8.4859, lng: 123.8048 };
-  }
-}
-
-async function geocodeLocation(locationName) {
-  try {
-    const knownLocations = {
-      'Molave': { lat: 8.4859, lng: 123.8048 },
-      'Fire Station': { lat: 8.4859, lng: 123.8048 },
-      'Town Plaza': { lat: 8.4859, lng: 123.8048 },
-      'Municipal Hall': { lat: 8.4859, lng: 123.8048 }
+    // Generate timestamp on backend, not frontend
+    const payload = {
+      user_id: userId,
+      title: title,
+      message: message,
+      type: type,
+      ...extraData  // Include alert_id, alert_location, resolve_time
     };
 
-    if (knownLocations[locationName]) {
-      return knownLocations[locationName];
-    }
+    console.log('📤 Sending notification:', payload);
 
-    const query = encodeURIComponent(`${locationName}, Molave, Zamboanga del Sur, Philippines`);
-    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'FireAlertSystem/1.0'
-      }
-    });
-    const data = await response.json();
-
-    if (data && data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon)
-      };
-    }
-
-    console.warn(`Could not geocode ${locationName}, using Molave center`);
-    return { lat: 8.4859, lng: 123.8048 };
-
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return { lat: 8.4859, lng: 123.8048 };
-  }
-}
-
-// ✅ FETCH ALERTS FROM BACKEND ONLY
-async function fetchAlerts(retryCount = 0) {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
-    
-    const response = await fetch(`${API_BASE}/get_alerts`, {
-      method: 'GET',
+    const response = await fetch(`${API_BASE}/api/admin/notifications`, {
+      method: 'POST',
       credentials: 'include',
-      signal: controller.signal
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log(`✅ Fetched ${data.alerts?.length || 0} alerts from backend`);
-    return data.alerts || [];
+    console.log('✅ Notification sent successfully:', data);
+    return data;
   } catch (error) {
-    console.error('Error fetching alerts (attempt ' + (retryCount + 1) + '):', error);
-    
-    if (retryCount === 0 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
-      console.log('⏰ Server might be waking up, retrying in 3 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      return fetchAlerts(1);
-    }
-    
-    return [];
+    console.error('❌ Error sending notification:', error);
+    throw error;
   }
 }
 
-// ✅ FETCH RESOLVED ALERTS FROM BACKEND ONLY (NO LOCALSTORAGE FALLBACK)
-async function fetchResolvedAlerts() {
+// Broadcast to all users
+async function broadcastNotification(title, message, type = 'info') {
   try {
-    const response = await fetch(`${API_BASE}/get_resolved_alerts`, { 
-      method: 'GET', 
-      credentials: 'include' 
+    const usersResponse = await fetch(`${API_BASE}/get_all_users`, {
+      method: 'GET',
+      credentials: 'include'
     });
-    
-    if (!response.ok) {
-      console.warn('Failed to fetch resolved alerts from backend');
-      return [];
+
+    if (!usersResponse.ok) {
+      throw new Error('Failed to fetch users');
     }
+
+    const users = await usersResponse.json();
     
-    const data = await response.json();
-    console.log(`✅ Fetched ${data.resolved?.length || 0} resolved alerts from backend`);
-    return data.resolved || [];
+    const promises = users.map(user => 
+      sendNotificationToUser(user.id, title, message, type)
+    );
+
+    await Promise.all(promises);
+    console.log(`✅ Broadcast sent to ${users.length} users`);
+    return { success: true, count: users.length };
   } catch (error) {
-    console.error('Error fetching resolved alerts:', error);
-    return [];
+    console.error('❌ Error broadcasting notification:', error);
+    throw error;
   }
 }
 
-async function updateDashboard() {
-  // ✅ Fetch all data from backend
-  const active = await fetchAlerts();
-  const resolved = await fetchResolvedAlerts();
-  const total = active.length + resolved.length;
+// ========================================
+// ALERT-SPECIFIC NOTIFICATIONS (FIXED)
+// ========================================
 
-  // Update stat cards
-  const activeCountEl = document.getElementById("activeCount");
-  const resolvedCountEl = document.getElementById("resolvedCount");
-  const totalCountEl = document.getElementById("totalCount");
-  
-  if (activeCountEl) activeCountEl.textContent = active.length;
-  if (resolvedCountEl) resolvedCountEl.textContent = resolved.length;
-  if (totalCountEl) totalCountEl.textContent = total;
+async function notifyUserAboutAlert(userId, alertId, notificationType, extraData = {}) {
+  const notifications = {
+    'responded': {
+      title: '🚒 Fire Station Response',
+      message: extraData.message || `The fire station has responded to your alert #${alertId}. Help is on the way!`,
+      type: 'response',
+      alert_id: alertId,
+      alert_location: extraData.location || null
+    },
+    'resolved': {
+      title: '✅ Fire Alert Resolved',
+      message: `Fire at ${extraData.location || 'your location'} has been extinguished${extraData.resolveTime ? ` at ${extraData.resolveTime}` : ''}.`,
+      type: 'resolved',
+      alert_id: alertId,
+      alert_location: extraData.location || null,
+      resolve_time: extraData.resolveTime || null
+    },
+    'deleted': {
+      title: '🗑️ Alert Removed',
+      message: `Your fire alert #${alertId} at ${extraData.location || 'your location'} has been removed from the system.`,
+      type: 'deleted',
+      alert_id: alertId,
+      alert_location: extraData.location || null
+    }
+  };
 
-  // Update sidebar badge
-  const badge = document.querySelector(".badge");
-  if (badge) badge.textContent = active.length;
-
-  // Fill recent alerts table
-  const tableBody = document.getElementById("recentAlertsTable");
-  if (tableBody) {
-    tableBody.innerHTML = "";
-    
-    const combined = [
-      ...active.map(a => ({...a, status:"Pending"})), 
-      ...resolved.map(r => ({...r, status:"Resolved"}))
-    ];
-    
-    combined.sort((a,b) => new Date(b.timestamp||b.resolvedAt) - new Date(a.timestamp||a.resolvedAt));
-
-    combined.slice(0, 5).forEach((alert, i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>#${alert.id || i+1}</td>
-        <td>${alert.description || "No description"}</td>
-        <td class="${alert.status==='Pending'?'status-pending':'status-resolved'}">${alert.status}</td>
-        <td>${new Date(alert.timestamp || alert.resolvedAt).toLocaleString()}</td>
-      `;
-      tableBody.appendChild(tr);
-    });
+  const notif = notifications[notificationType];
+  if (!notif) {
+    console.error('Unknown notification type:', notificationType);
+    return;
   }
 
-  // Display all active alerts on map
-  displayAlertsOnMap(active);
+  // Send notification with all metadata
+  return sendNotificationToUser(
+    userId, 
+    notif.title, 
+    notif.message, 
+    notif.type,
+    {
+      alert_id: notif.alert_id,
+      alert_location: notif.alert_location,
+      resolve_time: notif.resolve_time
+    }
+  );
 }
 
-// Initial load
-updateDashboard();
+// ========================================
+// HELPER FUNCTIONS FOR ADMIN ACTIONS
+// ========================================
 
-// Auto-refresh every 5 seconds
-setInterval(updateDashboard, 5000);
+// When admin responds to alert
+async function sendResponseNotification(userId, alertId, responseMessage, location) {
+  return notifyUserAboutAlert(userId, alertId, 'responded', {
+    message: responseMessage,
+    location: location
+  });
+}
+
+// When admin resolves alert
+async function sendResolvedNotification(userId, alertId, resolveTime, location) {
+  return notifyUserAboutAlert(userId, alertId, 'resolved', {
+    resolveTime: resolveTime,
+    location: location
+  });
+}
+
+// When admin deletes alert
+async function sendDeletedNotification(userId, alertId, location) {
+  return notifyUserAboutAlert(userId, alertId, 'deleted', {
+    location: location
+  });
+}
+
+console.log('✅ Admin notification system loaded - connected to backend:', API_BASE);
