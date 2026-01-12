@@ -217,51 +217,228 @@ document.addEventListener("DOMContentLoaded", () => {
   // API FUNCTIONS
   // ========================================
 
-  async function fetchAlerts(retryCount = 0) {
-    const maxRetries = 3;
+async function fetchAlerts(retryCount = 0) {
+  const maxRetries = 3;
+  const baseDelay = 2000; // 2 seconds base
+  
+  try {
+    // Increased timeout for Render.com cold starts
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
     
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
-      
-      const response = await fetch(`${API_BASE}/get_alerts`, {
-        method: 'GET',
-        credentials: 'include',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch(`${API_BASE}/get_alerts`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: controller.signal,
+      // Add cache control to avoid stale responses
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       }
+    });
 
-      const data = await response.json();
-      return data.alerts || [];
-    } catch (error) {
-      console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, error);
-      
-      if (retryCount < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-        return fetchAlerts(retryCount + 1);
-      }
-      
-      if (container.children.length === 0) {
-        container.innerHTML = `
-          <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px;">
-            <i class="fas fa-exclamation-triangle"></i> 
-            <strong>Connection Error</strong><br>
-            Unable to load alerts. The server might be starting up (this can take 60-90 seconds).
-            <br><br>
-            <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-              <i class="fas fa-sync"></i> Retry Now
-            </button>
-          </div>
-        `;
-      }
-      return [];
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    
+    // Clear any error messages on success
+    const errorMsg = container.querySelector('.connection-error-banner');
+    if (errorMsg) errorMsg.remove();
+    
+    return data.alerts || [];
+    
+  } catch (error) {
+    const isNetworkError = error.name === 'TypeError' || 
+                          error.name === 'AbortError' ||
+                          error.message.includes('Failed to fetch') ||
+                          error.message.includes('network');
+    
+    console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, {
+      name: error.name,
+      message: error.message,
+      isNetworkError
+    });
+    
+    // Retry logic with exponential backoff
+    if (retryCount < maxRetries - 1) {
+      const delay = baseDelay * Math.pow(2, retryCount); // Exponential: 2s, 4s, 8s
+      
+      // Show transient retry message (don't replace all content)
+      showRetryMessage(retryCount + 1, maxRetries, delay);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchAlerts(retryCount + 1);
+    }
+    
+    // After all retries failed
+    if (container.children.length === 0) {
+      // First load - show full error
+      container.innerHTML = `
+        <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
+          <div style="display: flex; align-items: start; gap: 15px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #ff9800; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+              <strong style="font-size: 18px; display: block; margin-bottom: 10px;">
+                ${isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
+              </strong>
+              <p style="margin: 8px 0;">
+                ${isNetworkError 
+                  ? 'Your network connection changed or was interrupted while loading alerts.' 
+                  : 'Unable to connect to the alerts server.'}
+              </p>
+              <p style="margin: 8px 0; color: #666;">
+                <strong>Possible causes:</strong><br>
+                • Server is waking up from sleep (60-90 seconds on free tier)<br>
+                • Network switched between WiFi/mobile data<br>
+                • VPN connection changed<br>
+                • Temporary internet disruption
+              </p>
+              <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="location.reload()" 
+                        style="padding: 10px 20px; background: #007bff; color: white; border: none; 
+                               border-radius: 6px; cursor: pointer; font-weight: 500; 
+                               box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
+                        onmouseover="this.style.background='#0056b3'"
+                        onmouseout="this.style.background='#007bff'">
+                  <i class="fas fa-sync"></i> Retry Now
+                </button>
+                <button onclick="checkNetworkStatus()" 
+                        style="padding: 10px 20px; background: #6c757d; color: white; border: none; 
+                               border-radius: 6px; cursor: pointer; font-weight: 500;">
+                  <i class="fas fa-network-wired"></i> Check Connection
+                </button>
+              </div>
+              <p style="margin-top: 15px; font-size: 13px; color: #666;">
+                <i class="fas fa-info-circle"></i> Auto-retrying in background...
+              </p>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Alerts were loaded before - show banner at top
+      showPersistentErrorBanner(isNetworkError);
+    }
+    
+    return [];
   }
+}
+
+// Show temporary retry message
+function showRetryMessage(attempt, maxAttempts, delay) {
+  let banner = container.querySelector('.retry-banner');
+  
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.className = 'retry-banner';
+    banner.style.cssText = `
+      background: #e3f2fd; 
+      border-left: 4px solid #2196f3; 
+      padding: 12px 15px; 
+      margin-bottom: 15px; 
+      border-radius: 4px;
+      animation: slideDown 0.3s ease;
+    `;
+    container.insertBefore(banner, container.firstChild);
+  }
+  
+  banner.innerHTML = `
+    <i class="fas fa-sync fa-spin"></i> 
+    <strong>Connection retry ${attempt}/${maxAttempts}</strong> - 
+    Retrying in ${(delay/1000).toFixed(0)} seconds...
+  `;
+  
+  // Remove after delay + 1 second
+  setTimeout(() => {
+    if (banner && banner.parentElement) {
+      banner.style.animation = 'fadeOut 0.3s ease';
+      setTimeout(() => banner.remove(), 300);
+    }
+  }, delay + 1000);
+}
+
+// Show persistent error banner when background updates fail
+function showPersistentErrorBanner(isNetworkError) {
+  let banner = container.querySelector('.connection-error-banner');
+  
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.className = 'connection-error-banner';
+    banner.style.cssText = `
+      background: #fff3cd; 
+      border-left: 4px solid #ffc107; 
+      padding: 12px 15px; 
+      margin-bottom: 15px; 
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    `;
+    container.insertBefore(banner, container.firstChild);
+  }
+  
+  banner.innerHTML = `
+    <div>
+      <i class="fas fa-exclamation-triangle"></i> 
+      <strong>${isNetworkError ? 'Network issue detected' : 'Connection error'}</strong> - 
+      Unable to refresh alerts. Showing last known data.
+    </div>
+    <button onclick="location.reload()" 
+            style="padding: 6px 12px; background: #007bff; color: white; border: none; 
+                   border-radius: 4px; cursor: pointer; font-size: 13px;">
+      <i class="fas fa-sync"></i> Retry
+    </button>
+  `;
+}
+
+// Helper function to check network status
+window.checkNetworkStatus = () => {
+  if (!navigator.onLine) {
+    alert('❌ You are currently offline. Please check your internet connection.');
+  } else {
+    alert('✅ You are online. The issue may be with the server or a temporary network glitch. Try refreshing.');
+  }
+};
+
+// Add network status listeners
+window.addEventListener('online', () => {
+  console.log('Network reconnected - attempting to refresh alerts...');
+  const banner = container.querySelector('.connection-error-banner');
+  if (banner) {
+    banner.style.background = '#d4edda';
+    banner.style.borderColor = '#28a745';
+    banner.innerHTML = `
+      <div>
+        <i class="fas fa-check-circle"></i> 
+        <strong>Connection restored!</strong> Refreshing alerts...
+      </div>
+    `;
+    setTimeout(() => location.reload(), 1500);
+  }
+});
+
+window.addEventListener('offline', () => {
+  console.log('Network disconnected');
+  showPersistentErrorBanner(true);
+});
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
 
   // ========================================
   // UI HELPER FUNCTIONS
