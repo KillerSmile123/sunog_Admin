@@ -229,12 +229,8 @@ async function fetchAlerts(retryCount = 0) {
     const response = await fetch(`${API_BASE}/get_alerts`, {
       method: 'GET',
       credentials: 'include',
-      signal: controller.signal,
-      // Add cache control to avoid stale responses
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      }
+      signal: controller.signal
+      // ❌ REMOVED: Cache-Control headers causing CORS error
     });
 
     clearTimeout(timeoutId);
@@ -257,10 +253,14 @@ async function fetchAlerts(retryCount = 0) {
                           error.message.includes('Failed to fetch') ||
                           error.message.includes('network');
     
+    const isCORSError = error.message.includes('CORS') || 
+                       (error.name === 'TypeError' && error.message === 'Failed to fetch');
+    
     console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, {
       name: error.name,
       message: error.message,
-      isNetworkError
+      isNetworkError,
+      isCORSError
     });
     
     // Retry logic with exponential backoff
@@ -283,19 +283,20 @@ async function fetchAlerts(retryCount = 0) {
             <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #ff9800; margin-top: 2px;"></i>
             <div style="flex: 1;">
               <strong style="font-size: 18px; display: block; margin-bottom: 10px;">
-                ${isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
+                ${isCORSError ? 'Server Configuration Error' : isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
               </strong>
               <p style="margin: 8px 0;">
-                ${isNetworkError 
-                  ? 'Your network connection changed or was interrupted while loading alerts.' 
-                  : 'Unable to connect to the alerts server.'}
+                ${isCORSError 
+                  ? 'There\'s a configuration issue with the server. The backend CORS settings need to be updated.' 
+                  : isNetworkError 
+                    ? 'Your network connection changed or was interrupted while loading alerts.' 
+                    : 'Unable to connect to the alerts server.'}
               </p>
               <p style="margin: 8px 0; color: #666;">
                 <strong>Possible causes:</strong><br>
-                • Server is waking up from sleep (60-90 seconds on free tier)<br>
-                • Network switched between WiFi/mobile data<br>
-                • VPN connection changed<br>
-                • Temporary internet disruption
+                ${isCORSError 
+                  ? '• Backend CORS headers need updating<br>• Server restart required after config change'
+                  : '• Server is waking up from sleep (60-90 seconds on free tier)<br>• Network switched between WiFi/mobile data<br>• VPN connection changed<br>• Temporary internet disruption'}
               </p>
               <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button onclick="location.reload()" 
@@ -321,7 +322,7 @@ async function fetchAlerts(retryCount = 0) {
       `;
     } else {
       // Alerts were loaded before - show banner at top
-      showPersistentErrorBanner(isNetworkError);
+      showPersistentErrorBanner(isNetworkError, isCORSError);
     }
     
     return [];
@@ -362,15 +363,15 @@ function showRetryMessage(attempt, maxAttempts, delay) {
 }
 
 // Show persistent error banner when background updates fail
-function showPersistentErrorBanner(isNetworkError) {
+function showPersistentErrorBanner(isNetworkError, isCORSError) {
   let banner = container.querySelector('.connection-error-banner');
   
   if (!banner) {
     banner = document.createElement('div');
     banner.className = 'connection-error-banner';
     banner.style.cssText = `
-      background: #fff3cd; 
-      border-left: 4px solid #ffc107; 
+      background: ${isCORSError ? '#ffe6e6' : '#fff3cd'}; 
+      border-left: 4px solid ${isCORSError ? '#dc3545' : '#ffc107'}; 
       padding: 12px 15px; 
       margin-bottom: 15px; 
       border-radius: 4px;
@@ -384,8 +385,8 @@ function showPersistentErrorBanner(isNetworkError) {
   banner.innerHTML = `
     <div>
       <i class="fas fa-exclamation-triangle"></i> 
-      <strong>${isNetworkError ? 'Network issue detected' : 'Connection error'}</strong> - 
-      Unable to refresh alerts. Showing last known data.
+      <strong>${isCORSError ? 'Server configuration error' : isNetworkError ? 'Network issue detected' : 'Connection error'}</strong> - 
+      ${isCORSError ? 'Backend CORS settings need updating.' : 'Unable to refresh alerts. Showing last known data.'}
     </div>
     <button onclick="location.reload()" 
             style="padding: 6px 12px; background: #007bff; color: white; border: none; 
@@ -423,7 +424,7 @@ window.addEventListener('online', () => {
 
 window.addEventListener('offline', () => {
   console.log('Network disconnected');
-  showPersistentErrorBanner(true);
+  showPersistentErrorBanner(true, false);
 });
 
 // Add CSS animations
