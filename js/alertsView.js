@@ -1,4 +1,4 @@
-// alertsView.js - Admin Alerts View with Multiple Images Support
+// alertsView.js - Admin Alerts View with Dijkstra Route Display
 
 // AUTHENTICATION CHECK
 if (typeof AdminAuth !== 'undefined') {
@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentAlertData = null;
   let currentAlertIds = [];
+  let activeMapRoutes = {}; // Store active route layers per map
 
   // ========================================
   // MODAL FUNCTIONS
@@ -189,23 +190,44 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ========================================
-  // LAZY MAP LOADING
+  // MAP & ROUTE FUNCTIONS
   // ========================================
 
-  window.loadMap = (mapId, lat, lng) => {
+  window.loadMap = async (mapId, lat, lng) => {
     const mapDiv = document.getElementById(mapId);
-    mapDiv.innerHTML = '<div style="padding:20px;text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading map...</div>';
+    mapDiv.innerHTML = '<div style="padding:20px;text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading map and calculating route...</div>';
     
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         const map = L.map(mapId).setView([lat, lng], 14);
+        
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
         }).addTo(map);
-        L.marker([fireStation.lat, fireStation.lng])
-          .addTo(map)
-          .bindPopup("Fire Station");
-        L.marker([lat, lng]).addTo(map).bindPopup("Incident Location");
+        
+        // Add Fire Station marker (green)
+        L.marker([fireStation.lat, fireStation.lng], {
+          icon: L.divIcon({
+            className: 'custom-fire-station-marker',
+            html: '<div style="background: #28a745; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"><i class="fas fa-fire-extinguisher"></i></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          })
+        }).addTo(map).bindPopup("<b>🚒 Fire Station</b><br>Starting Point");
+        
+        // Add Incident marker (red)
+        L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'custom-incident-marker',
+            html: '<div style="background: #dc3545; color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); animation: pulse 2s infinite;"><i class="fas fa-fire"></i></div>',
+            iconSize: [35, 35],
+            iconAnchor: [17.5, 17.5]
+          })
+        }).addTo(map).bindPopup("<b>🔥 Fire Incident</b><br>Destination");
+        
+        // Fetch and display route
+        await loadRoute(map, mapId, lat, lng);
+        
       } catch (mapError) {
         console.error('Map initialization error:', mapError);
         document.getElementById(mapId).innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Map could not be loaded</div>';
@@ -213,233 +235,287 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 100);
   };
 
+  async function loadRoute(map, mapId, alertLat, alertLng) {
+    try {
+      console.log(`🗺️ Fetching route for alert at ${alertLat}, ${alertLng}`);
+      
+      const response = await fetch(
+        `${API_BASE}/get_alert_route?lat=${alertLat}&lng=${alertLng}`,
+        { credentials: 'include' }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success || !data.route) {
+        throw new Error('No route data received');
+      }
+      
+      console.log(`✅ Route calculated: ${data.total_distance} km, ${data.route.length} points`);
+      
+      // Convert route to Leaflet format
+      const routeLatLngs = data.route.map(point => [point.lat, point.lng]);
+      
+      // Draw route polyline (red line)
+      const routeLayer = L.polyline(routeLatLngs, {
+        color: '#dc3545',
+        weight: 5,
+        opacity: 0.8,
+        dashArray: '10, 10',
+        lineJoin: 'round'
+      }).addTo(map);
+      
+      // Add junction markers
+      data.route.forEach((point, index) => {
+        if (point.isJunction) {
+          L.circleMarker([point.lat, point.lng], {
+            radius: 6,
+            fillColor: '#ffc107',
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+          }).addTo(map).bindPopup(`<b>Junction</b><br>${point.label}`);
+        }
+      });
+      
+      // Fit map to show entire route
+      map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+      
+      // Store route layer for cleanup
+      activeMapRoutes[mapId] = routeLayer;
+      
+      // Add distance info panel
+      const distanceInfo = L.control({ position: 'bottomright' });
+      distanceInfo.onAdd = function() {
+        const div = L.DomUtil.create('div', 'route-info-panel');
+        div.innerHTML = `
+          <div style="background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 13px;">
+            <div style="font-weight: bold; margin-bottom: 6px; color: #dc3545;">
+              <i class="fas fa-route"></i> Shortest Route
+            </div>
+            <div style="color: #666;">
+              <i class="fas fa-road"></i> Distance: <strong>${data.total_distance} km</strong>
+            </div>
+            <div style="color: #666; margin-top: 4px;">
+              <i class="fas fa-map-signs"></i> Junctions: ${data.path_nodes.length}
+            </div>
+          </div>
+        `;
+        return div;
+      };
+      distanceInfo.addTo(map);
+      
+    } catch (error) {
+      console.error('❌ Error loading route:', error);
+      
+      // Show error notification on map
+      const errorControl = L.control({ position: 'topright' });
+      errorControl.onAdd = function() {
+        const div = L.DomUtil.create('div', 'route-error');
+        div.innerHTML = `
+          <div style="background: #fff3cd; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 12px; max-width: 250px;">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Route Unavailable</strong><br>
+            <span style="color: #666;">Could not calculate route to this location</span>
+          </div>
+        `;
+        return div;
+      };
+      errorControl.addTo(map);
+    }
+  }
+
   // ========================================
   // API FUNCTIONS
   // ========================================
 
-async function fetchAlerts(retryCount = 0) {
-  const maxRetries = 3;
-  const baseDelay = 2000; // 2 seconds base
-  
-  try {
-    // Increased timeout for Render.com cold starts
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+  async function fetchAlerts(retryCount = 0) {
+    const maxRetries = 3;
+    const baseDelay = 2000;
     
-    const response = await fetch(`${API_BASE}/get_alerts`, {
-      method: 'GET',
-      credentials: 'include',
-      signal: controller.signal
-      // ❌ REMOVED: Cache-Control headers causing CORS error
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // Clear any error messages on success
-    const errorMsg = container.querySelector('.connection-error-banner');
-    if (errorMsg) errorMsg.remove();
-    
-    return data.alerts || [];
-    
-  } catch (error) {
-    const isNetworkError = error.name === 'TypeError' || 
-                          error.name === 'AbortError' ||
-                          error.message.includes('Failed to fetch') ||
-                          error.message.includes('network');
-    
-    const isCORSError = error.message.includes('CORS') || 
-                       (error.name === 'TypeError' && error.message === 'Failed to fetch');
-    
-    console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, {
-      name: error.name,
-      message: error.message,
-      isNetworkError,
-      isCORSError
-    });
-    
-    // Retry logic with exponential backoff
-    if (retryCount < maxRetries - 1) {
-      const delay = baseDelay * Math.pow(2, retryCount); // Exponential: 2s, 4s, 8s
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
       
-      // Show transient retry message (don't replace all content)
-      showRetryMessage(retryCount + 1, maxRetries, delay);
+      const response = await fetch(`${API_BASE}/get_alerts`, {
+        method: 'GET',
+        credentials: 'include',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchAlerts(retryCount + 1);
-    }
-    
-    // After all retries failed
-    if (container.children.length === 0) {
-      // First load - show full error
-      container.innerHTML = `
-        <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
-          <div style="display: flex; align-items: start; gap: 15px;">
-            <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #ff9800; margin-top: 2px;"></i>
-            <div style="flex: 1;">
-              <strong style="font-size: 18px; display: block; margin-bottom: 10px;">
-                ${isCORSError ? 'Server Configuration Error' : isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
-              </strong>
-              <p style="margin: 8px 0;">
-                ${isCORSError 
-                  ? 'There\'s a configuration issue with the server. The backend CORS settings need to be updated.' 
-                  : isNetworkError 
-                    ? 'Your network connection changed or was interrupted while loading alerts.' 
-                    : 'Unable to connect to the alerts server.'}
-              </p>
-              <p style="margin: 8px 0; color: #666;">
-                <strong>Possible causes:</strong><br>
-                ${isCORSError 
-                  ? '• Backend CORS headers need updating<br>• Server restart required after config change'
-                  : '• Server is waking up from sleep (60-90 seconds on free tier)<br>• Network switched between WiFi/mobile data<br>• VPN connection changed<br>• Temporary internet disruption'}
-              </p>
-              <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button onclick="location.reload()" 
-                        style="padding: 10px 20px; background: #007bff; color: white; border: none; 
-                               border-radius: 6px; cursor: pointer; font-weight: 500; 
-                               box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
-                        onmouseover="this.style.background='#0056b3'"
-                        onmouseout="this.style.background='#007bff'">
-                  <i class="fas fa-sync"></i> Retry Now
-                </button>
-                <button onclick="checkNetworkStatus()" 
-                        style="padding: 10px 20px; background: #6c757d; color: white; border: none; 
-                               border-radius: 6px; cursor: pointer; font-weight: 500;">
-                  <i class="fas fa-network-wired"></i> Check Connection
-                </button>
+      const errorMsg = container.querySelector('.connection-error-banner');
+      if (errorMsg) errorMsg.remove();
+      
+      return data.alerts || [];
+      
+    } catch (error) {
+      const isNetworkError = error.name === 'TypeError' || 
+                            error.name === 'AbortError' ||
+                            error.message.includes('Failed to fetch') ||
+                            error.message.includes('network');
+      
+      const isCORSError = error.message.includes('CORS') || 
+                         (error.name === 'TypeError' && error.message === 'Failed to fetch');
+      
+      console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, {
+        name: error.name,
+        message: error.message,
+        isNetworkError,
+        isCORSError
+      });
+      
+      if (retryCount < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        showRetryMessage(retryCount + 1, maxRetries, delay);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchAlerts(retryCount + 1);
+      }
+      
+      if (container.children.length === 0) {
+        container.innerHTML = `
+          <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
+            <div style="display: flex; align-items: start; gap: 15px;">
+              <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #ff9800; margin-top: 2px;"></i>
+              <div style="flex: 1;">
+                <strong style="font-size: 18px; display: block; margin-bottom: 10px;">
+                  ${isCORSError ? 'Server Configuration Error' : isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
+                </strong>
+                <p style="margin: 8px 0;">
+                  ${isCORSError 
+                    ? 'There\'s a configuration issue with the server. The backend CORS settings need to be updated.' 
+                    : isNetworkError 
+                      ? 'Your network connection changed or was interrupted while loading alerts.' 
+                      : 'Unable to connect to the alerts server.'}
+                </p>
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button onclick="location.reload()" 
+                          style="padding: 10px 20px; background: #007bff; color: white; border: none; 
+                                 border-radius: 6px; cursor: pointer; font-weight: 500;">
+                    <i class="fas fa-sync"></i> Retry Now
+                  </button>
+                </div>
               </div>
-              <p style="margin-top: 15px; font-size: 13px; color: #666;">
-                <i class="fas fa-info-circle"></i> Auto-retrying in background...
-              </p>
             </div>
           </div>
-        </div>
+        `;
+      } else {
+        showPersistentErrorBanner(isNetworkError, isCORSError);
+      }
+      
+      return [];
+    }
+  }
+
+  function showRetryMessage(attempt, maxAttempts, delay) {
+    let banner = container.querySelector('.retry-banner');
+    
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'retry-banner';
+      banner.style.cssText = `
+        background: #e3f2fd; 
+        border-left: 4px solid #2196f3; 
+        padding: 12px 15px; 
+        margin-bottom: 15px; 
+        border-radius: 4px;
       `;
-    } else {
-      // Alerts were loaded before - show banner at top
-      showPersistentErrorBanner(isNetworkError, isCORSError);
+      container.insertBefore(banner, container.firstChild);
     }
     
-    return [];
-  }
-}
-
-// Show temporary retry message
-function showRetryMessage(attempt, maxAttempts, delay) {
-  let banner = container.querySelector('.retry-banner');
-  
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.className = 'retry-banner';
-    banner.style.cssText = `
-      background: #e3f2fd; 
-      border-left: 4px solid #2196f3; 
-      padding: 12px 15px; 
-      margin-bottom: 15px; 
-      border-radius: 4px;
-      animation: slideDown 0.3s ease;
+    banner.innerHTML = `
+      <i class="fas fa-sync fa-spin"></i> 
+      <strong>Connection retry ${attempt}/${maxAttempts}</strong> - 
+      Retrying in ${(delay/1000).toFixed(0)} seconds...
     `;
-    container.insertBefore(banner, container.firstChild);
+    
+    setTimeout(() => {
+      if (banner && banner.parentElement) {
+        banner.remove();
+      }
+    }, delay + 1000);
   }
-  
-  banner.innerHTML = `
-    <i class="fas fa-sync fa-spin"></i> 
-    <strong>Connection retry ${attempt}/${maxAttempts}</strong> - 
-    Retrying in ${(delay/1000).toFixed(0)} seconds...
-  `;
-  
-  // Remove after delay + 1 second
-  setTimeout(() => {
-    if (banner && banner.parentElement) {
-      banner.style.animation = 'fadeOut 0.3s ease';
-      setTimeout(() => banner.remove(), 300);
+
+  function showPersistentErrorBanner(isNetworkError, isCORSError) {
+    let banner = container.querySelector('.connection-error-banner');
+    
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'connection-error-banner';
+      banner.style.cssText = `
+        background: ${isCORSError ? '#ffe6e6' : '#fff3cd'}; 
+        border-left: 4px solid ${isCORSError ? '#dc3545' : '#ffc107'}; 
+        padding: 12px 15px; 
+        margin-bottom: 15px; 
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      `;
+      container.insertBefore(banner, container.firstChild);
     }
-  }, delay + 1000);
-}
-
-// Show persistent error banner when background updates fail
-function showPersistentErrorBanner(isNetworkError, isCORSError) {
-  let banner = container.querySelector('.connection-error-banner');
-  
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.className = 'connection-error-banner';
-    banner.style.cssText = `
-      background: ${isCORSError ? '#ffe6e6' : '#fff3cd'}; 
-      border-left: 4px solid ${isCORSError ? '#dc3545' : '#ffc107'}; 
-      padding: 12px 15px; 
-      margin-bottom: 15px; 
-      border-radius: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    `;
-    container.insertBefore(banner, container.firstChild);
-  }
-  
-  banner.innerHTML = `
-    <div>
-      <i class="fas fa-exclamation-triangle"></i> 
-      <strong>${isCORSError ? 'Server configuration error' : isNetworkError ? 'Network issue detected' : 'Connection error'}</strong> - 
-      ${isCORSError ? 'Backend CORS settings need updating.' : 'Unable to refresh alerts. Showing last known data.'}
-    </div>
-    <button onclick="location.reload()" 
-            style="padding: 6px 12px; background: #007bff; color: white; border: none; 
-                   border-radius: 4px; cursor: pointer; font-size: 13px;">
-      <i class="fas fa-sync"></i> Retry
-    </button>
-  `;
-}
-
-// Helper function to check network status
-window.checkNetworkStatus = () => {
-  if (!navigator.onLine) {
-    alert('❌ You are currently offline. Please check your internet connection.');
-  } else {
-    alert('✅ You are online. The issue may be with the server or a temporary network glitch. Try refreshing.');
-  }
-};
-
-// Add network status listeners
-window.addEventListener('online', () => {
-  console.log('Network reconnected - attempting to refresh alerts...');
-  const banner = container.querySelector('.connection-error-banner');
-  if (banner) {
-    banner.style.background = '#d4edda';
-    banner.style.borderColor = '#28a745';
+    
     banner.innerHTML = `
       <div>
-        <i class="fas fa-check-circle"></i> 
-        <strong>Connection restored!</strong> Refreshing alerts...
+        <i class="fas fa-exclamation-triangle"></i> 
+        <strong>${isCORSError ? 'Server configuration error' : isNetworkError ? 'Network issue detected' : 'Connection error'}</strong> - 
+        ${isCORSError ? 'Backend CORS settings need updating.' : 'Unable to refresh alerts. Showing last known data.'}
       </div>
+      <button onclick="location.reload()" 
+              style="padding: 6px 12px; background: #007bff; color: white; border: none; 
+                     border-radius: 4px; cursor: pointer; font-size: 13px;">
+        <i class="fas fa-sync"></i> Retry
+      </button>
     `;
-    setTimeout(() => location.reload(), 1500);
   }
-});
 
-window.addEventListener('offline', () => {
-  console.log('Network disconnected');
-  showPersistentErrorBanner(true, false);
-});
+  window.checkNetworkStatus = () => {
+    if (!navigator.onLine) {
+      alert('❌ You are currently offline. Please check your internet connection.');
+    } else {
+      alert('✅ You are online. The issue may be with the server or a temporary network glitch. Try refreshing.');
+    }
+  };
 
-// Add CSS animations
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
-`;
-document.head.appendChild(style);
+  window.addEventListener('online', () => {
+    console.log('Network reconnected - attempting to refresh alerts...');
+    const banner = container.querySelector('.connection-error-banner');
+    if (banner) {
+      banner.style.background = '#d4edda';
+      banner.style.borderColor = '#28a745';
+      banner.innerHTML = `
+        <div>
+          <i class="fas fa-check-circle"></i> 
+          <strong>Connection restored!</strong> Refreshing alerts...
+        </div>
+      `;
+      setTimeout(() => location.reload(), 1500);
+    }
+  });
+
+  window.addEventListener('offline', () => {
+    console.log('Network disconnected');
+    showPersistentErrorBanner(true, false);
+  });
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+  `;
+  document.head.appendChild(style);
 
   // ========================================
   // UI HELPER FUNCTIONS
@@ -478,9 +554,7 @@ document.head.appendChild(style);
     `;
   }
 
-  // ✅ Handle multiple images and videos
   function mediaHTML(alert) {
-    // Parse photo_urls
     let photoUrls = [];
     if (alert.photo_urls && Array.isArray(alert.photo_urls)) {
       photoUrls = alert.photo_urls;
@@ -488,7 +562,6 @@ document.head.appendChild(style);
       photoUrls = [alert.photo_url];
     }
 
-    // Parse video_urls
     let videoUrls = [];
     if (alert.video_urls && Array.isArray(alert.video_urls)) {
       videoUrls = alert.video_urls;
@@ -498,7 +571,6 @@ document.head.appendChild(style);
 
     let html = '';
 
-    // ✅ Display multiple photos in a gallery
     if (photoUrls.length > 0) {
       html += `<div class="media-gallery" style="margin: 10px 0;">`;
       
@@ -532,7 +604,6 @@ document.head.appendChild(style);
       html += `</div>`;
     }
     
-    // ✅ Display multiple videos
     if (videoUrls.length > 0) {
       html += `<div class="video-gallery" style="margin: 10px 0;">`;
       videoUrls.forEach((url, index) => {
@@ -558,7 +629,6 @@ document.head.appendChild(style);
     return html;
   }
 
-  // ✅ Image modal for full-screen view
   window.openImageModal = (imageUrl) => {
     const modal = document.createElement('div');
     modal.style.cssText = `
@@ -670,10 +740,13 @@ document.head.appendChild(style);
         ${mediaHTML(alert)}
         <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
         <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
-        <div id="${mapId}" style="width:100%;height:200px;border-radius:8px;margin-top:10px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+        <div id="${mapId}" style="width:100%;height:300px;border-radius:8px;margin-top:10px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
           ${hasCoords ? `
-            <button onclick="loadMap('${mapId}', ${lat}, ${lng})" style="padding:10px 20px;background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-              <i class="fas fa-map-marked-alt"></i> Load Map
+            <button onclick="loadMap('${mapId}', ${lat}, ${lng})" 
+                    style="padding:12px 24px;background:#dc3545;color:white;border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-weight:500;transition:all 0.2s;"
+                    onmouseover="this.style.background='#c82333'"
+                    onmouseout="this.style.background='#dc3545'">
+              <i class="fas fa-route"></i> Show Route to Fire
             </button>
           ` : '<div style="color:#6c757d;">Invalid coordinates</div>'}
         </div>
