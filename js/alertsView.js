@@ -235,92 +235,78 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 100);
   };
 
-  async function loadRoute(map, mapId, alertLat, alertLng) {
+ async function loadRoute(map, mapId, alertLat, alertLng) {
     try {
-      console.log(`🗺️ Fetching route for alert at ${alertLat}, ${alertLng}`);
-      
-      const response = await fetch(
-        `${API_BASE}/get_alert_route?lat=${alertLat}&lng=${alertLng}`,
-        { credentials: 'include' }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.success || !data.route) {
-        throw new Error('No route data received');
-      }
-      
-      console.log(`✅ Route calculated: ${data.total_distance} km, ${data.route.length} points`);
-      
-      // Convert route to Leaflet format
-      const routeLatLngs = data.route.map(point => [point.lat, point.lng]);
-      
-      // Draw route polyline (red line)
-      const routeLayer = L.polyline(routeLatLngs, {
-        color: '#dc3545',
-        weight: 5,
-        opacity: 0.8,
-        dashArray: '10, 10',
-        lineJoin: 'round'
-      }).addTo(map);
-      
-      // Add junction markers
-      data.route.forEach((point, index) => {
-        if (point.isJunction) {
-          L.circleMarker([point.lat, point.lng], {
-            radius: 6,
-            fillColor: '#ffc107',
-            color: '#fff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-          }).addTo(map).bindPopup(`<b>Junction</b><br>${point.label}`);
+        console.log(`🗺️ Fetching route from OpenRouteService...`);
+        
+        const response = await fetch(
+            `${API_BASE}/get_alert_route?lat=${alertLat}&lng=${alertLng}`,
+            { credentials: 'include' }
+        );
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-      });
-      
-      // Fit map to show entire route
-      map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
-      
-      // Store route layer for cleanup
-      activeMapRoutes[mapId] = routeLayer;
-      
-      // Add distance info panel
-      const distanceInfo = L.control({ position: 'bottomright' });
-      distanceInfo.onAdd = function() {
-        const div = L.DomUtil.create('div', 'route-info-panel');
-        div.innerHTML = `
-          <div style="background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 13px;">
-            <div style="font-weight: bold; margin-bottom: 6px; color: #dc3545;">
-              <i class="fas fa-route"></i> Shortest Route
-            </div>
-            <div style="color: #666;">
-              <i class="fas fa-road"></i> Distance: <strong>${data.total_distance} km</strong>
-            </div>
-            <div style="color: #666; margin-top: 4px;">
-              <i class="fas fa-map-signs"></i> Junctions: ${data.path_nodes.length}
-            </div>
-          </div>
-        `;
-        return div;
-      };
-      distanceInfo.addTo(map);
-      
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.route) {
+            throw new Error('No route data received');
+        }
+        
+        console.log(`✅ Route: ${data.total_distance} km, ETA: ${data.estimated_duration} min`);
+        
+        // Convert route to Leaflet format
+        const routeLatLngs = data.route.map(point => [point.lat, point.lng]);
+        
+        // Draw route polyline
+        const routeLayer = L.polyline(routeLatLngs, {
+            color: '#dc3545',
+            weight: 5,
+            opacity: 0.8,
+            dashArray: '10, 10',
+            lineJoin: 'round'
+        }).addTo(map);
+        
+        // Fit map to show entire route
+        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+        
+        // Add distance info panel
+        const distanceInfo = L.control({ position: 'bottomright' });
+        distanceInfo.onAdd = function() {
+            const div = L.DomUtil.create('div', 'route-info-panel');
+            div.innerHTML = `
+                <div style="background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 13px;">
+                    <div style="font-weight: bold; margin-bottom: 6px; color: #dc3545;">
+                        <i class="fas fa-route"></i> Route Info
+                    </div>
+                    <div style="color: #666;">
+                        <i class="fas fa-road"></i> Distance: <strong>${data.total_distance} km</strong>
+                    </div>
+                    <div style="color: #666; margin-top: 4px;">
+                        <i class="fas fa-clock"></i> ETA: <strong>${data.estimated_duration} min</strong>
+                    </div>
+                    <div style="color: #999; font-size: 11px; margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px;">
+                        <i class="fas fa-map"></i> OpenStreetMap data
+                    </div>
+                </div>
+            `;
+            return div;
+        };
+        distanceInfo.addTo(map);
+        
     } catch (error) {
-      console.error('❌ Error loading route:', error);
+        console.error('❌ Error loading route:', error);
       
-      // Show error notification on map
-      const errorControl = L.control({ position: 'topright' });
-      errorControl.onAdd = function() {
-        const div = L.DomUtil.create('div', 'route-error');
-        div.innerHTML = `
-          <div style="background: #fff3cd; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 12px; max-width: 250px;">
-            <i class="fas fa-exclamation-triangle"></i> <strong>Route Unavailable</strong><br>
-            <span style="color: #666;">Could not calculate route to this location</span>
-          </div>
+        // Show error notification on map
+        const errorControl = L.control({ position: 'topright' });
+        errorControl.onAdd = function() {
+          const div = L.DomUtil.create('div', 'route-error');
+          div.innerHTML = `
+            <div style="background: #fff3cd; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 12px; max-width: 250px;">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Route Unavailable</strong><br>
+              <span style="color: #666;">Could not calculate route to this location</span>
+            </div>
         `;
         return div;
       };
