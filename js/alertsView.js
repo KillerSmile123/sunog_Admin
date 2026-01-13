@@ -12,7 +12,7 @@ if (typeof AdminAuth !== 'undefined') {
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("alerts-container");
   const badgeEl = document.querySelector(".badge");
-  const fireStation = { lat:  8.459527, lng: 123.80065 };
+  const fireStation = { lat:  8.476723719070502, lng:  123.7970718508905};
 
   let currentAlertData = null;
   let currentAlertIds = [];
