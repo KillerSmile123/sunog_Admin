@@ -15,7 +15,8 @@ body {
 }
 
 .login-card {
-  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 40px 30px;
   width: 100%;
