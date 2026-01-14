@@ -3,39 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Resolved Alerts</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <title>Resolved Alerts - FireTrackr</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="css/alertResolve.css" />
+  
 </head>
 <body>
   <div class="sidebar">
     <div class="sidebar-header">
-      <h2>FireTrackr</h2>
+      <h2><i class="fas fa-fire-extinguisher"></i> FireTrackr</h2>
     </div>
     <div class="nav">
       <a href="adminDashboard.html"><i class="fas fa-home"></i> Dashboard</a>
-      <a href="alerts.html"><i class="fas fa-bell"></i> Alerts <span class="badge">0</span></a>
-      <a href="alertResolve.html"><i class="fas fa-fire"></i> Resolved</a>
-      <a href="spam.html"><i class="fas fa-trash"></i> Spam</a>
+      <a href="alerts.html"><i class="fas fa-bell"></i> Alerts <span class="badge" id="alerts-badge">0</span></a>
+      <a href="alertResolve.html" class="active"><i class="fas fa-check-circle"></i> Resolved</a>
+      <a href="spam.html"><i class="fas fa-ban"></i> Spam <span class="badge" id="spam-badge">0</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <a href="adminProfile.html"><i class="fas fa-user-circle"></i> Profile</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
+
   <div class="main">
     <div class="topbar">
-      <h1>Resolved Alerts</h1>
-      <a href="adminProfile.html"><i class="fas fa-user-circle profile-icon"></i></a>
+      <div class="topbar-left">
+        <h1><i class="fas fa-check-circle"></i> Resolved Alerts</h1>
+        <p class="subtitle">View all successfully resolved fire incidents</p>
+      </div>
+      <a href="adminProfile.html" class="profile-link">
+        <i class="fas fa-user-circle profile-icon"></i>
+      </a>
     </div>
+
     <div class="content" id="resolved-container">
-      
+      <div class="info" style="text-align: center; padding: 20px;">
+        <i class="fas fa-spinner fa-spin"></i> Loading resolved alerts...
+      </div>
     </div>
+
     <div class="footer">
       &copy; 2025 FireTrackr. All rights reserved.
     </div>
   </div>
 
+  <!-- Unresolve Confirmation Modal -->
+  <div id="unresolve-modal" class="modal">
+    <div class="modal-content">
+      <h3><i class="fas fa-undo"></i> Unresolve Alert</h3>
+      <p id="unresolve-alert-info"></p>
+      <p style="color: #666; margin-top: 10px;">This will move the alert back to active alerts.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeUnresolveModal()">
+          <i class="fas fa-times"></i> Cancel
+        </button>
+        <button class="btn btn-primary" onclick="confirmUnresolve()">
+          <i class="fas fa-undo"></i> Unresolve Alert
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="js/auth.js"></script>
   <script src="js/config.js"></script>
   <script src="js/resolve.js"></script>
 </body>
