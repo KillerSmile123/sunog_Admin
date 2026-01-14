@@ -49,12 +49,6 @@ body {
   font-size: 28px;
 }
 
-.sidebar-logo {
-  max-width: 100%;
-  height: auto;
-  max-height: 80px;
-}
-
 .nav {
   flex: 1;
   padding: 20px 0;

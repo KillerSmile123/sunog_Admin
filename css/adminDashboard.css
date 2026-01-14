@@ -50,12 +50,6 @@ body.dark {
   gap: 10px;
 }
 
-.sidebar-logo {
-  max-width: 100%;
-  height: auto;
-  max-height: 80px;
-}
-
 .sidebar-header h2 i {
   color: #e74c3c;
   font-size: 28px;
