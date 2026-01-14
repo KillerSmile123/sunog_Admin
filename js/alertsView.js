@@ -743,9 +743,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <button class="action-btn btn-resolve" onclick="openResolveModal('${alert.id}', '${reporterName.replace(/'/g, "\\'")}', '${barangay.replace(/'/g, "\\'")}')">
             <i class="fas fa-check-circle"></i> Resolve
           </button>
-          <button class="action-btn btn-delete" onclick="deleteAlert('${alert.id}', '${reporterName.replace(/'/g, "\\'")}')">
-            <i class="fas fa-trash"></i> Delete
-          </button>
+          <button class="action-btn btn-spam" onclick="markAsSpam('${alert.id}', '${reporterName.replace(/'/g, "\\'")}')">
+          <i class="fas fa-flag"></i> Mark as Spam
+           </button>
         </div>
       `;
       container.appendChild(card);
