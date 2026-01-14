@@ -1,19 +1,19 @@
 // API Configuration
 const API_BASE = "https://backend-3-hqil.onrender.com";
 
-// Admin Login JavaScript
-// This file handles the admin login functionality
-
+// Admin Login Handler
 class AdminLogin {
   constructor() {
     this.init();
   }
 
   init() {
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', () => {
+    // Setup event listeners when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.setupEventListeners());
+    } else {
       this.setupEventListeners();
-    });
+    }
   }
 
   setupEventListeners() {
@@ -29,17 +29,15 @@ class AdminLogin {
       togglePassword.addEventListener('click', () => this.togglePasswordVisibility());
     }
 
-    // Clear error message when user starts typing
+    // Clear messages when user starts typing
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
     
-    if (emailInput) {
-      emailInput.addEventListener('input', () => this.clearErrorMessage());
-    }
-    
-    if (passwordInput) {
-      passwordInput.addEventListener('input', () => this.clearErrorMessage());
-    }
+    [emailInput, passwordInput].forEach(input => {
+      if (input) {
+        input.addEventListener('input', () => this.clearMessages());
+      }
+    });
   }
 
   async handleLogin(e) {
@@ -47,16 +45,16 @@ class AdminLogin {
     
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value.trim();
-    const errorMsg = document.getElementById('error-message');
     const submitButton = e.target.querySelector('button[type="submit"]');
 
-    // Basic validation
+    // Validate inputs
     if (!this.validateInputs(email, password)) {
       return;
     }
 
     // Show loading state
     this.setLoadingState(submitButton, true);
+    this.clearMessages();
 
     try {
       const response = await fetch(`${API_BASE}/login`, {
@@ -70,29 +68,27 @@ class AdminLogin {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.message === 'Login successful') {
         this.handleLoginSuccess(data);
       } else {
-        this.handleLoginError(data.message || 'Login failed');
+        this.handleLoginError(data.message || 'Invalid email or password');
       }
     } catch (error) {
       console.error('Login error:', error);
-      this.handleLoginError('Server error. Please try again later.');
+      this.handleLoginError('Unable to connect to server. Please try again later.');
     } finally {
       this.setLoadingState(submitButton, false);
     }
   }
 
   validateInputs(email, password) {
-    const errorMsg = document.getElementById('error-message');
-
     // Check if fields are empty
     if (!email || !password) {
       this.showError('Please fill in all fields');
       return false;
     }
 
-    // Basic email validation
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       this.showError('Please enter a valid email address');
@@ -109,27 +105,44 @@ class AdminLogin {
   }
 
   handleLoginSuccess(data) {
-    // Store admin token if provided
+    console.log('Login successful:', data);
+
+    // Store authentication data in sessionStorage
+    if (data.token) {
+      sessionStorage.setItem('authToken', data.token);
+    }
+
+    if (data.admin) {
+      sessionStorage.setItem('adminId', data.admin.id);
+      sessionStorage.setItem('adminInfo', JSON.stringify(data.admin));
+    }
+
+    // Also store in localStorage as backup
     if (data.token) {
       localStorage.setItem('adminToken', data.token);
     }
 
-    // Store admin info if provided
-    if (data.admin) {
-      localStorage.setItem('adminInfo', JSON.stringify(data.admin));
-    }
-
     // Show success message
-    this.showSuccess('Login successful!');
+    this.showSuccess('Login successful! Redirecting...');
 
-    // Redirect to admin dashboard after a short delay
+    // Redirect to admin dashboard
     setTimeout(() => {
       window.location.href = 'adminDashboard.html';
     }, 1000);
   }
 
   handleLoginError(message) {
+    console.error('Login failed:', message);
     this.showError(message);
+    
+    // Shake the form for visual feedback
+    const loginCard = document.querySelector('.login-card');
+    if (loginCard) {
+      loginCard.style.animation = 'none';
+      setTimeout(() => {
+        loginCard.style.animation = 'shake 0.5s ease';
+      }, 10);
+    }
   }
 
   togglePasswordVisibility() {
@@ -137,63 +150,85 @@ class AdminLogin {
     const toggleIcon = document.getElementById('togglePassword');
 
     if (passwordInput && toggleIcon) {
-      const currentType = passwordInput.getAttribute('type');
-      const newType = currentType === 'password' ? 'text' : 'password';
+      const isPassword = passwordInput.type === 'password';
       
-      passwordInput.setAttribute('type', newType);
-      toggleIcon.classList.toggle('fa-eye');
-      toggleIcon.classList.toggle('fa-eye-slash');
+      passwordInput.type = isPassword ? 'text' : 'password';
+      toggleIcon.classList.toggle('fa-eye', !isPassword);
+      toggleIcon.classList.toggle('fa-eye-slash', isPassword);
     }
   }
 
   showError(message) {
     const errorMsg = document.getElementById('error-message');
+    const successMsg = document.getElementById('success-message');
+    
+    if (successMsg) {
+      successMsg.classList.remove('show');
+    }
+    
     if (errorMsg) {
       errorMsg.textContent = message;
-      errorMsg.style.color = 'red';
-      errorMsg.style.display = 'block';
+      errorMsg.classList.add('show');
     }
   }
 
   showSuccess(message) {
     const errorMsg = document.getElementById('error-message');
+    const successMsg = document.getElementById('success-message');
+    
     if (errorMsg) {
-      errorMsg.textContent = message;
-      errorMsg.style.color = 'green';
-      errorMsg.style.display = 'block';
+      errorMsg.classList.remove('show');
+    }
+    
+    if (successMsg) {
+      successMsg.textContent = message;
+      successMsg.classList.add('show');
     }
   }
 
-  clearErrorMessage() {
+  clearMessages() {
     const errorMsg = document.getElementById('error-message');
+    const successMsg = document.getElementById('success-message');
+    
     if (errorMsg) {
-      errorMsg.textContent = '';
-      errorMsg.style.display = 'none';
+      errorMsg.classList.remove('show');
+    }
+    
+    if (successMsg) {
+      successMsg.classList.remove('show');
     }
   }
 
   setLoadingState(button, isLoading) {
-    if (button) {
-      if (isLoading) {
-        button.disabled = true;
-        button.textContent = 'Logging in...';
-        button.style.opacity = '0.7';
-      } else {
-        button.disabled = false;
-        button.textContent = 'Login';
-        button.style.opacity = '1';
-      }
+    if (!button) return;
+
+    if (isLoading) {
+      button.disabled = true;
+      button.classList.add('loading');
+    } else {
+      button.disabled = false;
+      button.classList.remove('loading');
     }
   }
 }
 
-// Use centralized AdminAuth from auth.js if available
-const AdminAuth = window.AdminAuth || null;
+// Check if user is already logged in
+function checkExistingSession() {
+  const authToken = sessionStorage.getItem('authToken') || localStorage.getItem('adminToken');
+  const adminId = sessionStorage.getItem('adminId');
+  
+  if (authToken && adminId) {
+    // User is already logged in, redirect to dashboard
+    console.log('Existing session found, redirecting to dashboard...');
+    window.location.href = 'adminDashboard.html';
+  }
+}
 
-// Initialize the admin login when the script loads
+// Initialize the admin login system
+checkExistingSession();
 const adminLogin = new AdminLogin();
 
 // Export for use in other files if needed
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AdminLogin, AdminAuth };
+  module.exports = AdminLogin;
 }

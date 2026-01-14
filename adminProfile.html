@@ -5,19 +5,206 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/adminProfile.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #e8ecef;
+      min-height: 100vh;
+    }
+
+    .top-bar {
+      background-color: #3d4f5d;
+      padding: 1rem 2rem;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.5rem;
+    }
+
+    .back-btn:hover {
+      opacity: 0.8;
+    }
+
+    .top-bar h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .profile-card {
+      max-width: 500px;
+      margin: 2rem auto;
+      background: white;
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    #profile-pic {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 1rem;
+      border: 3px solid #4db8a8;
+    }
+
+    #admin-name {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: #2c3e50;
+    }
+
+    .role {
+      color: #6c757d;
+      margin-bottom: 1.5rem;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    #upload-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 0.6rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      transition: background-color 0.3s;
+    }
+
+    #upload-btn:hover {
+      background-color: #2980b9;
+    }
+
+    #upload-btn:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #2c3e50;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .form-group input:disabled {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #4db8a8;
+    }
+
+    button[type="submit"] {
+      background-color: #4db8a8;
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 1rem;
+      transition: background-color 0.3s;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #3d9984;
+    }
+
+    button[type="submit"]:disabled {
+      background-color: #95a5a6;
+      cursor: not-allowed;
+    }
+
+    .error-message {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #4db8a8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
   <!-- Top Bar -->
   <div class="top-bar">
-    <div class="left">
-      <button class="back-btn" onclick="goBack()">← Back</button>
-      <h1>Admin Profile</h1>
-    </div>
+    <button class="back-btn" onclick="goBack()">← Back</button>
+    <h1>Admin Profile</h1>
   </div>
 
   <!-- Profile Card -->
   <div class="profile-card">
+    <div id="messageContainer"></div>
+    <div id="loadingContainer"></div>
+    
     <img src="https://via.placeholder.com/120" alt="Admin Picture" id="profile-pic">
     <h2 id="admin-name">Admin Name</h2>
     <p class="role">System Administrator</p>
@@ -29,17 +216,17 @@
     <form id="profileForm">
       <div class="form-group">
         <label for="fullname">Full Name</label>
-        <input type="text" id="fullname" value="John Doe">
+        <input type="text" id="fullname" required>
       </div>
 
       <div class="form-group">
         <label for="email">Email</label>
-        <input type="email" id="email" value="admin@example.com">
+        <input type="email" id="email" required>
       </div>
 
       <div class="form-group">
         <label for="contact">Contact Number</label>
-        <input type="text" id="contact" value="+63 912 345 6789">
+        <input type="text" id="contact" required>
       </div>
 
       <div class="form-group">
@@ -52,44 +239,262 @@
   </div>
 
   <script>
+    // ============ CONFIGURATION ============
+    // CHANGE THIS TO YOUR ACTUAL BACKEND URL
+    const API_BASE_URL = 'https://backend-3-hqil.onrender.com'; // e.g., 'http://example.com' or 'https://api.yoursite.com'
+    
+    // ============ ELEMENTS ============
     const form = document.getElementById("profileForm");
     const uploadBtn = document.getElementById("upload-btn");
     const fileInput = document.getElementById("fileInput");
     const profilePic = document.getElementById("profile-pic");
+    const adminNameDisplay = document.getElementById("admin-name");
+    const messageContainer = document.getElementById("messageContainer");
+    const loadingContainer = document.getElementById("loadingContainer");
 
-    // Save profile details
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      alert("Profile updated successfully!");
+    let currentAdminId = null;
+
+    // ============ HELPER FUNCTIONS ============
+    function showLoading(show = true) {
+      if (show) {
+        loadingContainer.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      } else {
+        loadingContainer.innerHTML = '';
+      }
+    }
+
+    function showMessage(message, type) {
+      messageContainer.innerHTML = `<div class="${type}-message">${message}</div>`;
+      setTimeout(() => {
+        messageContainer.innerHTML = '';
+      }, 4000);
+    }
+
+    function getAuthToken() {
+      return sessionStorage.getItem('authToken') || localStorage.getItem('authToken');
+    }
+
+    function getAdminId() {
+      const adminId = sessionStorage.getItem('adminId') || localStorage.getItem('adminId');
+      return adminId;
+    }
+
+    function checkAuthentication() {
+      const token = getAuthToken();
+      const adminId = getAdminId();
+      
+      if (!token || !adminId) {
+        showMessage('Please login first', 'error');
+        setTimeout(() => {
+          window.location.href = 'adminLogin.html';
+        }, 2000);
+        return false;
+      }
+      return true;
+    }
+
+    // ============ FETCH ADMIN PROFILE FROM BACKEND ============
+    async function fetchAdminProfile() {
+      if (!checkAuthentication()) return;
+
+      try {
+        showLoading(true);
+        
+        const token = getAuthToken();
+        const adminId = getAdminId();
+        currentAdminId = adminId;
+
+        const response = await fetch(`${API_BASE_URL}/admin/profile/${adminId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        showLoading(false);
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            showMessage('Session expired. Please login again.', 'error');
+            setTimeout(() => {
+              window.location.href = 'adminLogin.html';
+            }, 2000);
+            return;
+          }
+          throw new Error('Failed to fetch profile data');
+        }
+
+        const data = await response.json();
+        populateProfile(data);
+
+      } catch (error) {
+        showLoading(false);
+        console.error('Error fetching profile:', error);
+        showMessage('Error loading profile: ' + error.message, 'error');
+      }
+    }
+
+    function populateProfile(data) {
+      // Handle different possible field names from backend
+      const fullname = data.fullname || data.name || data.full_name || '';
+      const email = data.email || '';
+      const contact = data.contact || data.phone || data.contact_number || '';
+      const role = data.role || 'Administrator';
+      const profilePicture = data.profile_picture || data.profilePicture || data.avatar || data.image || '';
+
+      document.getElementById('fullname').value = fullname;
+      document.getElementById('email').value = email;
+      document.getElementById('contact').value = contact;
+      document.getElementById('role').value = role;
+      
+      adminNameDisplay.textContent = fullname || 'Admin User';
+
+      // Set profile picture if exists
+      if (profilePicture) {
+        profilePic.src = profilePicture.startsWith('http') 
+          ? profilePicture 
+          : `${API_BASE_URL}${profilePicture}`;
+      }
+    }
+
+    // ============ UPDATE ADMIN PROFILE ============
+    async function updateAdminProfile(profileData) {
+      try {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
+        const token = getAuthToken();
+
+        const response = await fetch(`${API_BASE_URL}/admin/profile/${currentAdminId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(profileData)
+        });
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Changes';
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to update profile');
+        }
+
+        showMessage(data.message || 'Profile updated successfully!', 'success');
+        
+        // Update display name
+        adminNameDisplay.textContent = profileData.fullname;
+
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        showMessage('Error updating profile: ' + error.message, 'error');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Changes';
+      }
+    }
+
+    // ============ UPLOAD PROFILE PICTURE ============
+    async function uploadProfilePicture(file) {
+      try {
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Uploading...';
+
+        const formData = new FormData();
+        formData.append('profile_picture', file);
+        formData.append('admin_id', currentAdminId);
+
+        const token = getAuthToken();
+
+        const response = await fetch(`${API_BASE_URL}/admin/upload_picture`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Change Picture';
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to upload picture');
+        }
+
+        // Update profile picture with new URL from backend
+        const picUrl = data.profile_picture || data.imageUrl || data.url;
+        if (picUrl) {
+          profilePic.src = picUrl.startsWith('http') ? picUrl : `${API_BASE_URL}${picUrl}`;
+        }
+
+        showMessage(data.message || 'Profile picture updated successfully!', 'success');
+
+      } catch (error) {
+        console.error('Error uploading picture:', error);
+        showMessage('Error uploading picture: ' + error.message, 'error');
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Change Picture';
+      }
+    }
+
+    // ============ EVENT LISTENERS ============
+    window.addEventListener("DOMContentLoaded", () => {
+      fetchAdminProfile();
     });
 
-    // Open file input when button clicked
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const profileData = {
+        fullname: document.getElementById('fullname').value,
+        email: document.getElementById('email').value,
+        contact: document.getElementById('contact').value
+      };
+      
+      await updateAdminProfile(profileData);
+    });
+
     uploadBtn.addEventListener("click", () => {
       fileInput.click();
     });
 
-    // When new picture is chosen
-    fileInput.addEventListener("change", (event) => {
+    fileInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          profilePic.src = e.target.result; // change profile picture
-          localStorage.setItem("adminProfilePic", e.target.result); // save in local storage
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        showMessage('Please select an image file', 'error');
+        return;
       }
+
+      // Validate file size (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        showMessage('Image size should be less than 2MB', 'error');
+        return;
+      }
+
+      // Preview image immediately
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        profilePic.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to backend
+      await uploadProfilePicture(file);
+      
+      // Clear file input
+      fileInput.value = '';
     });
 
-    // Load saved picture if exists
-    window.addEventListener("DOMContentLoaded", () => {
-      const savedPic = localStorage.getItem("adminProfilePic");
-      if (savedPic) {
-        profilePic.src = savedPic;
-      }
-    });
-
-    // Go back function
     function goBack() {
       window.history.back();
     }

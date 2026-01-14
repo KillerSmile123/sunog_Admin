@@ -4,34 +4,48 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Login Page</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="css/adminLogin.css" />
 </head>
 <body>
 
   <div class="login-card">
-    <img src="images/FireTrackrAdmin.png" alt="BFP Logo">
+    <div class="logo-container">
+      <img src="images/FireTrackrAdmin.png" alt="FireTrackr Logo">
+    </div>
+    
     <h2>Admin Login</h2>
+    <p class="subtitle">Welcome back! Please enter your credentials</p>
 
     <form id="loginForm">
-      <div class="input-icon">
-        <span><i class="fa-solid fa-envelope"></i></span>
-        <input type="text" id="email" placeholder="Email" required>
+      <div class="input-group">
+        <label for="email">Email Address</label>
+        <div class="input-icon">
+          <span><i class="fa-solid fa-envelope"></i></span>
+          <input type="email" id="email" placeholder="Enter your email" required>
+        </div>
       </div>
 
-      <div class="input-icon">
-        <span><i class="fa-solid fa-lock"></i></span>
-        <input type="password" id="password" placeholder="Password" required>
-        <i class="fas fa-eye toggle-password" id="togglePassword"></i>
+      <div class="input-group">
+        <label for="password">Password</label>
+        <div class="input-icon">
+          <span><i class="fa-solid fa-lock"></i></span>
+          <input type="password" id="password" placeholder="Enter your password" required>
+          <i class="fas fa-eye toggle-password" id="togglePassword"></i>
+        </div>
       </div>
 
-      <button type="submit">Login</button>
+      <button type="submit">
+        <span class="button-text">Login</span>
+        <div class="spinner"></div>
+      </button>
+      
       <p class="error-message" id="error-message"></p>
+      <p class="success-message" id="success-message"></p>
     </form>
   </div>
-  <script src="js/admin.js"></script>
+
+  <script src="js/adminLogin.js"></script>
 </body>
-
-
 </html>
