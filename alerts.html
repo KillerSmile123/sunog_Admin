@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Alerts and Details</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <title>Active Alerts - FireTrackr</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="css/alerts.css" />
@@ -12,82 +12,74 @@
 </head>
 <body>
   <div class="sidebar">
-    <div class="sidebar-header"><h2>FireTrackr</h2></div>
+    <div class="sidebar-header">
+      <h2><i class="fas fa-fire-extinguisher"></i> FireTrackr</h2>
+    </div>
     <div class="nav">
       <a href="adminDashboard.html"><i class="fas fa-home"></i> Dashboard</a>
-      <a href="alerts.html"><i class="fas fa-bell"></i> Alerts <span class="badge">0</span></a>
-      <a href="alertResolve.html"><i class="fas fa-fire"></i> Resolved</a>
-       <a href="spam.html"><i class="fas fa-trash"></i> Spam</a>
+      <a href="alerts.html" class="active"><i class="fas fa-bell"></i> Alerts <span class="badge" id="alerts-badge">0</span></a>
+      <a href="alertResolve.html"><i class="fas fa-check-circle"></i> Resolved</a>
+      <a href="spam.html"><i class="fas fa-ban"></i> Spam <span class="badge" id="spam-badge">0</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <a href="adminProfile.html"><i class="fas fa-user-circle"></i> Profile</a>
+      <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 
   <div class="main">
     <div class="topbar">
-      <h1>Alerts Overview</h1>
-      <a href="adminProfile.html"><i class="fas fa-user-circle profile-icon"></i></a>
+      <div class="topbar-left">
+        <h1><i class="fas fa-bell"></i> Active Alerts</h1>
+        <p class="subtitle">Monitor and respond to fire incidents</p>
+      </div>
+      <a href="adminProfile.html" class="profile-link">
+        <i class="fas fa-user-circle profile-icon"></i>
+      </a>
     </div>
+
     <div class="content">
-      <div class="alerts-header">Recent Alerts</div>
-      <div id="alerts-container"></div>
+      <div id="alerts-container">
+        <div class="info" style="text-align: center; padding: 20px;">
+          <i class="fas fa-spinner fa-spin"></i> Loading alerts...
+        </div>
+      </div>
     </div>
-    <div class="footer">&copy; 2025 FireTrackr. All rights reserved.</div>
+
+    <div class="footer">
+      &copy; 2025 FireTrackr. All rights reserved.
+    </div>
   </div>
 
   <!-- Respond Modal -->
-<div class="modal" id="respond-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3><i class="fas fa-reply"></i> Respond to Alert</h3>
-      <button type="button" class="modal-close" onclick="closeRespondModal()">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div class="modal-body">
-      <p id="respond-alert-info"></p>
-      <label for="response-message"><strong>Your Response:</strong></label>
-      <textarea id="response-message" rows="4" placeholder="Enter your response message to the reporter..."></textarea>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn-cancel" onclick="closeRespondModal()">Cancel</button>
-      <button type="button" class="btn-primary" onclick="sendResponse()">
-        <i class="fas fa-paper-plane"></i> Send Response
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Resolve Modal -->
-<div class="modal" id="resolve-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3><i class="fas fa-check-circle"></i> Resolve Fire Alert</h3>
-      <button type="button" class="modal-close" onclick="closeResolveModal()">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div class="modal-body">
-      <p id="resolve-alert-info"></p>
-      <label for="resolve-time"><strong>Time Fire Was Resolved:</strong></label>
-      <input type="time" id="resolve-time" required>
-      <small style="display:block;margin-top:5px;color:#666;">
-        Enter the time when the fire was extinguished
-      </small>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn-cancel" onclick="closeResolveModal()">Cancel</button>
-      <button type="button" class="btn-success" onclick="markAsResolved()">
-        <i class="fas fa-check"></i> Mark as Resolved
-      </button>
+  <div class="modal" id="respond-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-reply"></i> Respond to Alert</h3>
+        <button type="button" class="modal-close" onclick="closeRespondModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="respond-alert-info"></p>
+        <label for="response-message"><strong>Your Response:</strong></label>
+        <textarea id="response-message" rows="4" placeholder="Enter your response message to the reporter..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeRespondModal()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="sendResponse()">
+          <i class="fas fa-paper-plane"></i> Send Response
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
   <!-- Resolve Modal -->
   <div class="modal" id="resolve-modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3><i class="fas fa-check-circle"></i> Resolve Fire Alert</h3>
-        <button class="modal-close" onclick="closeResolveModal()">
+        <button type="button" class="modal-close" onclick="closeResolveModal()">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -100,8 +92,8 @@
         </small>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" onclick="closeResolveModal()">Cancel</button>
-        <button class="btn-success" onclick="markAsResolved()">
+        <button type="button" class="btn-cancel" onclick="closeResolveModal()">Cancel</button>
+        <button type="button" class="btn-success" onclick="markAsResolved()">
           <i class="fas fa-check"></i> Mark as Resolved
         </button>
       </div>
@@ -119,5 +111,17 @@
   
   <!-- Finally load alertsView.js (which uses API_BASE from config.js) -->
   <script src="js/alertsView.js"></script>
+
+  <script>
+    // Logout function
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        window.location.href = 'adminLogin.html';
+      }
+    }
+  </script>
 </body>
 </html>
