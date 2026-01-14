@@ -310,7 +310,7 @@ async function updateDashboard() {
           tr.style.cursor = "pointer";
           tr.onclick = () => window.location.href = `alerts.html?id=${alert.id}`;
           
-          const statusClass = alert.status === 'Pending' || alert.status === 'pending' 
+          const statusClass = alert.status === 'Pending' || alert.status === 'Pending' 
             ? 'status-pending' 
             : 'status-resolved';
           
