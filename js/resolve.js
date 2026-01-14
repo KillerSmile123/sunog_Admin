@@ -332,69 +332,73 @@ document.addEventListener("DOMContentLoaded", () => {
     container.innerHTML = "";
 
     resolvedAlerts.forEach((alert) => {
-      const card = document.createElement("div");
-      card.className = "resolved-card";
-      card.dataset.id = alert.id;
+  const card = document.createElement("div");
+  card.className = "resolved-card";
+  
+  // FIX: Sanitize alert.id to remove special characters
+  const sanitizedId = String(alert.id).replace(/[^a-zA-Z0-9-_]/g, '');
+  card.dataset.id = sanitizedId;
 
-      const reporterName = alert.reporter_name || 'Anonymous Reporter';
-      const barangay = alert.barangay || 'Unknown Location';
-      const reportedTime = new Date(alert.timestamp).toLocaleString();
-      const resolvedTime = alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString() : 'Unknown';
-      const resolveTimeCustom = alert.resolve_time || 'Not specified';
+  const reporterName = alert.reporter_name || 'Anonymous Reporter';
+  const barangay = alert.barangay || 'Unknown Location';
+  const reportedTime = new Date(alert.timestamp).toLocaleString();
+  const resolvedTime = alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString() : 'Unknown';
+  const resolveTimeCustom = alert.resolve_time || 'Not specified';
 
-      const lat = parseFloat(alert.latitude);
-      const lng = parseFloat(alert.longitude);
-      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-      const dist = hasCoords
-        ? haversineDistance(fireStation, { lat, lng }) + " km"
-        : "N/A";
+  const lat = parseFloat(alert.latitude);
+  const lng = parseFloat(alert.longitude);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+  const dist = hasCoords
+    ? haversineDistance(fireStation, { lat, lng }) + " km"
+    : "N/A";
 
-      const mapId = "map-" + alert.id;
+  // FIX: Use sanitized ID for map
+  const mapId = "map-" + sanitizedId;
 
-      card.innerHTML = `
-        ${reporterHeaderHTML(alert)}
-        
-        <div class="info"><strong>Alert ID:</strong> #${alert.id}</div>
-        <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
-        ${mediaHTML(alert)}
-        <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
-        <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
-        
-        <div class="resolved-timestamp">
-          <div class="info">
-            <i class="fas fa-clock"></i>
-            <strong>Reported:</strong> ${reportedTime}
-          </div>
-          <div class="info">
-            <i class="fas fa-check-circle"></i>
-            <strong>Resolved:</strong> ${resolvedTime}
-          </div>
-          <div class="info">
-            <i class="fas fa-fire-extinguisher"></i>
-            <strong>Extinguished:</strong> ${resolveTimeCustom}
-          </div>
-        </div>
+  card.innerHTML = `
+    ${reporterHeaderHTML(alert)}
+    
+    <div class="info"><strong>Alert ID:</strong> #${alert.id}</div>
+    <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
+    ${mediaHTML(alert)}
+    <div class="info"><strong>Location:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
+    <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
+    
+    <div class="resolved-timestamp">
+      <div class="info">
+        <i class="fas fa-clock"></i>
+        <strong>Reported:</strong> ${reportedTime}
+      </div>
+      <div class="info">
+        <i class="fas fa-check-circle"></i>
+        <strong>Resolved:</strong> ${resolvedTime}
+      </div>
+      <div class="info">
+        <i class="fas fa-fire-extinguisher"></i>
+        <strong>Extinguished:</strong> ${resolveTimeCustom}
+      </div>
+    </div>
 
-        <div id="${mapId}" class="map-container" style="height:300px;border-radius:8px;margin-top:15px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
-          ${hasCoords ? `
-            <button onclick="loadMap('${mapId}', ${lat}, ${lng})" 
-                    style="padding:12px 24px;background:#007bff;color:white;border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-weight:500;transition:all 0.2s;"
-                    onmouseover="this.style.background='#0056b3'"
-                    onmouseout="this.style.background='#007bff'">
-              <i class="fas fa-map-marked-alt"></i> Show Location Map
-            </button>
-          ` : '<div style="color:#6c757d;">Invalid coordinates</div>'}
-        </div>
+    <div id="${mapId}" class="map-container" style="height:300px;border-radius:8px;margin-top:15px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+      ${hasCoords ? `
+        <button onclick="loadMap('${mapId}', ${lat}, ${lng})" 
+                style="padding:12px 24px;background:#007bff;color:white;border:none;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);font-weight:500;transition:all 0.2s;"
+                onmouseover="this.style.background='#0056b3'"
+                onmouseout="this.style.background='#007bff'">
+          <i class="fas fa-map-marked-alt"></i> Show Location Map
+        </button>
+      ` : '<div style="color:#6c757d;">Invalid coordinates</div>'}
+    </div>
 
-        <div class="action-buttons">
-          <button class="action-btn btn-unresolve" onclick="openUnresolveModal('${alert.id}', '${reporterName.replace(/'/g, "\\'")}', '${barangay.replace(/'/g, "\\'")}')">
-            <i class="fas fa-undo"></i> Move to Active Alerts
-          </button>
-        </div>
-      `;
-      
-      container.appendChild(card);
-    });
+    <div class="action-buttons">
+      <button class="action-btn btn-unresolve" onclick="openUnresolveModal('${alert.id}', '${reporterName.replace(/'/g, "\\'")}', '${barangay.replace(/'/g, "\\'")}')">
+        <i class="fas fa-undo"></i> Move to Active Alerts
+      </button>
+    </div>
+  `;
+  
+  container.appendChild(card);
+});
   }
 
   // ========================================
