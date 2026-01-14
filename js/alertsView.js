@@ -162,33 +162,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  window.deleteAlert = async (alertId, reporterName) => {
-    if (!confirm(`Are you sure you want to delete the alert from ${reporterName}?\n\nThe user will be notified that their alert has been removed.`)) {
+  window.markAsSpam = async (alertId, reporterName) => {
+    if (!confirm(`Are you sure you want to mark the alert from ${reporterName} as spam?\n\nThe user will be notified that their alert has been marked as spam.`)) {
       return;
     }
 
     try {
-      const res = await fetch(`${API_BASE}/delete_alert/${encodeURIComponent(alertId)}`, {
-        method: 'DELETE',
+      const res = await fetch(`${API_BASE}/mark_spam/${encodeURIComponent(alertId)}`, {
+        method: 'POST',
         credentials: 'include'
       });
 
       if (res.ok) {
-        alert('Alert deleted successfully! User has been notified.');
+        alert('Alert marked as spam successfully! User has been notified.');
         const card = document.querySelector(`[data-id="${alertId}"]`);
         if (card) card.remove();
         const remainingAlerts = document.querySelectorAll('.alert-card').length;
         updateBadge(remainingAlerts);
         currentAlertIds = currentAlertIds.filter(id => id !== alertId);
       } else {
-        throw new Error('Failed to delete alert');
+        throw new Error('Failed to mark alert as spam');
       }
     } catch (error) {
-      console.error('Error deleting alert:', error);
-      alert('Failed to delete alert. Please try again.');
+      console.error('Error marking alert as spam:', error);
+      alert('Failed to mark alert as spam. Please try again.');
     }
   };
-
+  
   // ========================================
   // MAP & ROUTE FUNCTIONS
   // ========================================
