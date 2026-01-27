@@ -10,7 +10,7 @@ if (typeof AdminAuth !== 'undefined') {
 }
 
 // Map init - Focused on Oroquieta City
-var map = L.map('map').setView([8.4859, 123.8048], 14);
+var map = L.map('map').setView([8.5920, 123.8420], 14);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
