@@ -9,13 +9,22 @@ if (typeof AdminAuth !== 'undefined') {
     .catch(() => { window.location.href = 'adminLogin.html'; });
 }
 
-// Map init - Focused on Oroquieta City
-var map = L.map('map').setView([8.5920, 123.8420], 14);
+// Map init - Strictly focused on Oroquieta City only
+var map = L.map('map', {
+  center: [8.4859, 123.8048],
+  zoom: 13,
+  minZoom: 12,  // Prevent zooming out too far
+  maxZoom: 18,  // Allow zooming in for detail
+  maxBounds: [
+    [8.45, 123.77],  // Southwest corner (tighter bounds)
+    [8.52, 123.84]   // Northeast corner (tighter bounds)
+  ],
+  maxBoundsViscosity: 1.0  // Hard bounds - prevents panning outside
+});
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
-
 // Dark mode toggle
 const toggleBtn = document.getElementById('toggleTheme');
 if (toggleBtn) {
