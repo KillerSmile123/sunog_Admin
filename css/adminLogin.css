@@ -22,9 +22,9 @@
       content: '';
       position: absolute;
       background: linear-gradient(to top, 
-        rgba(255, 69, 0, 0.3) 0%,
-        rgba(255, 140, 0, 0.2) 40%,
-        rgba(255, 215, 0, 0.1) 70%,
+        rgba(162, 72, 87, 0.15) 0%,
+        rgba(162, 72, 87, 0.1) 40%,
+        rgba(162, 72, 87, 0.05) 70%,
         transparent 100%);
       animation: flicker 3s ease-in-out infinite;
       filter: blur(40px);
