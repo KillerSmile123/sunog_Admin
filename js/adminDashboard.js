@@ -330,6 +330,8 @@ async function updateDashboard() {
           
           tr.innerHTML = `
             <td style="font-weight: 600;">#${alert.id || i + 1}</td>
+            <td>${alert.reporter_name || alert.reporter || "Anonymous"}</td>
+            <td>${alert.barangay || alert.location || "Unknown"}</td>
             <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               ${alert.description || "No description"}
             </td>
