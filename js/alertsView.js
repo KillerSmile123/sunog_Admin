@@ -734,7 +734,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
         ${mediaHTML(alert)}
-        <div class="info"><strong>Location:</strong> Barangay ${alert.barangay || 'Unknown'}</div>
+        <div class="info"><strong>Barangay:</strong> ${alert.barangay || 'Unknown'}</div>
         <div class="info"><strong>Coordinates:</strong> ${alert.latitude || "?"}, ${alert.longitude || "?"}</div>
         <div class="info"><strong>Distance from Fire Station:</strong> <span class="distance">${dist}</span></div>
         <div id="${mapId}" style="width:100%;height:300px;border-radius:8px;margin-top:10px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
