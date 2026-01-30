@@ -37,18 +37,19 @@ body.dark {
 }
 
 .sidebar-header {
-  padding: 30px 20px;
+  padding: 15px 10px;
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .logo-image {
-  max-width: 100%;
+  width: 90%;
   height: auto;
-  max-height: 120px;
+  max-width: 220px;
   object-fit: contain;
 }
 
@@ -560,11 +561,12 @@ body.dark .footer {
   }
 
   .sidebar-header {
-    padding: 15px 10px;
+    padding: 10px 5px;
   }
 
   .logo-image {
-    max-height: 80px;
+    width: 85%;
+    max-width: 55px;
   }
 
   .sidebar-header h2 {
