@@ -37,20 +37,18 @@ body.dark {
 }
 
 .sidebar-header {
-  padding: 14px 20px;
+  padding: 10px 20px;
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
-  min-height: 50px;
 }
 
 .logo-image {
-  width: 90%;
+  width: 200px;
   height: auto;
-  max-width: 220px;
   object-fit: contain;
 }
 
@@ -562,8 +560,7 @@ body.dark .footer {
   }
 
   .sidebar-header {
-    padding: 14px 10px;
-    min-height: 50px;
+    padding: 10px 5px;
   }
 
   .logo-image {
