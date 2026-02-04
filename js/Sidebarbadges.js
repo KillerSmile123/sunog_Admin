@@ -75,12 +75,13 @@ function updateSidebarBadges(counts) {
   }
   
   // Update Resolved badge
-  const resolvedBadges = document.querySelectorAll(
-    'a[href="resolved.html"] .badge, ' +
-    'a[href*="resolved"] .badge, ' +
-    '.nav-item.resolved .badge, ' +
-    '.sidebar .resolved .badge'
-  );
+const resolvedBadges = document.querySelectorAll(
+  'a[href="alertResolve.html"] .badge, ' +
+  'a[href*="alertResolve"] .badge, ' +
+  'a[href*="resolved"] .badge, ' +
+  '.nav-item.resolved .badge, ' +
+  '.sidebar .resolved .badge'
+);
   
   resolvedBadges.forEach(badge => {
     badge.textContent = counts.resolved;
