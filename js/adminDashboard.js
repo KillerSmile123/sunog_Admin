@@ -356,6 +356,15 @@ async function updateDashboard() {
   }
 }
 
+function logout() {
+    // Clear any session data or tokens
+    localStorage.removeItem('adminToken'); // if you're using localStorage
+    sessionStorage.clear(); // if you're using sessionStorage
+    
+    // Redirect to login page
+    window.location.href = 'login.html'; // or whatever your login page is called
+}
+
 // ========================================
 // INITIALIZATION
 // ========================================
