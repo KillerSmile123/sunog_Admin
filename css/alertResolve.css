@@ -1326,3 +1326,23 @@ body {
     height: 250px;
   }
 }
+
+/* Ensure only the active page is highlighted */
+.sidebar .nav a {
+  background: transparent;
+}
+
+.sidebar .nav a.active {
+  background: rgba(255, 77, 77, 0.1);
+  border-left: 4px solid #ff4d4d;
+}
+
+/* Make sure badges don't affect the menu item appearance */
+.sidebar .nav a .badge {
+  background: #e74c3c;
+  margin-left: auto;
+}
+
+.sidebar .nav a[href*="alertResolve"] .badge {
+  background: #27ae60;
+}
