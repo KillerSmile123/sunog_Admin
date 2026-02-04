@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       console.log(`📋 Retrieved ${data.count} spam alerts`);
       
-      return data.spam || [];
+      return data.alerts || data.spam || [];
       
     } catch (error) {
       console.error('❌ Error fetching spam alerts:', error);
@@ -389,5 +389,5 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(() => {
     render();
     updateAlertsBadge();
-  }, 30000);
+  }, 60000);
 });
