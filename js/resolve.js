@@ -139,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Resolved alerts API response:", data);
       console.log(`📋 Retrieved ${data.count || data.resolved?.length || 0} resolved alerts`);
       
-      return data.alerts || [];
+      return data.resolved || [];
       
     } catch (error) {
       console.error('❌ Error fetching resolved alerts:', error);
