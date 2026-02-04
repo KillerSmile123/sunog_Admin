@@ -19,7 +19,7 @@
     <div class="nav">
       <a href="adminDashboard.html"><i class="fas fa-home"></i> Dashboard</a>
       <a href="alerts.html"><i class="fas fa-bell"></i> Alerts <span class="badge" id="alerts-badge">0</span></a>
-      <a href="alertResolve.html"><i class="fas fa-check-circle"></i> Resolved</a>
+      <a href="alertResolve.html"><i class="fas fa-check-circle"></i> Resolved <span class="badge" id="resolved-badge">0</span></a>
       <a href="spam.html" class="active"><i class="fas fa-ban"></i> Spam <span class="badge" id="spam-badge">0</span></a>
     </div>
     <div class="sidebar-footer">
@@ -89,6 +89,7 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <!-- Load config.js FIRST to define API_BASE -->
   <script src="js/config.js"></script>
+  <script src="js/Sidebarbadges.js"></script>
   
   <!-- Then load auth utilities -->
   <script src="js/auth.js"></script>
