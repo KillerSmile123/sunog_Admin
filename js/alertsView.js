@@ -12,7 +12,7 @@ if (typeof AdminAuth !== 'undefined') {
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("alerts-container");
   const badgeEl = document.querySelector(".badge");
-  const fireStation = { lat:  8.476723719070502, lng:  123.7970718508905};
+  const fireStation = { lat: 8.476723719070502, lng: 123.7970718508905 };
 
   let currentAlertData = null;
   let currentAlertIds = [];
@@ -53,12 +53,12 @@ document.addEventListener("DOMContentLoaded", () => {
   window.sendResponse = async () => {
     const sendBtn = document.querySelector('#respond-modal .btn-primary');
     if (sendBtn && sendBtn.disabled) return;
-    
+
     if (sendBtn) {
       sendBtn.disabled = true;
       sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     }
-    
+
     if (!currentAlertData?.id) {
       alert('Error: Alert data not found.');
       closeRespondModal();
@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
-    
+
     const message = document.getElementById('response-message').value.trim();
     if (!message) {
       alert('Please enter a response message');
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Error sending response:', error);
       alert('Failed to send response. Please try again.');
-      
+
       if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Response';
@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
       closeResolveModal();
       return;
     }
-    
+
     const resolveTime = document.getElementById('resolve-time').value;
     if (!resolveTime) {
       alert('Please enter the time when the fire was resolved');
@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Error resolving alert:', error);
       alert('Failed to resolve alert. Please try again.');
-      
+
       if (resolveBtn) {
         resolveBtn.disabled = false;
         resolveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark as Resolved';
@@ -188,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       alert('Failed to mark alert as spam. Please try again.');
     }
   };
-  
+
   // ========================================
   // MAP & ROUTE FUNCTIONS
   // ========================================
@@ -196,15 +196,15 @@ document.addEventListener("DOMContentLoaded", () => {
   window.loadMap = async (mapId, lat, lng) => {
     const mapDiv = document.getElementById(mapId);
     mapDiv.innerHTML = '<div style="padding:20px;text-align:center;"><i class="fas fa-spinner fa-spin"></i> Loading map and calculating route...</div>';
-    
+
     setTimeout(async () => {
       try {
         const map = L.map(mapId).setView([lat, lng], 14);
-        
+
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
         }).addTo(map);
-        
+
         // Add Fire Station marker (green)
         L.marker([fireStation.lat, fireStation.lng], {
           icon: L.divIcon({
@@ -214,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
             iconAnchor: [15, 15]
           })
         }).addTo(map).bindPopup("<b>🚒 Fire Station</b><br>Starting Point");
-        
+
         // Add Incident marker (red)
         L.marker([lat, lng], {
           icon: L.divIcon({
@@ -224,10 +224,10 @@ document.addEventListener("DOMContentLoaded", () => {
             iconAnchor: [17.5, 17.5]
           })
         }).addTo(map).bindPopup("<b>🔥 Fire Incident</b><br>Destination");
-        
+
         // Fetch and display route
         await loadRoute(map, mapId, lat, lng);
-        
+
       } catch (mapError) {
         console.error('Map initialization error:', mapError);
         document.getElementById(mapId).innerHTML = '<div style="padding:20px;text-align:center;color:#999;">Map could not be loaded</div>';
@@ -235,47 +235,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 100);
   };
 
- async function loadRoute(map, mapId, alertLat, alertLng) {
+  async function loadRoute(map, mapId, alertLat, alertLng) {
     try {
-        console.log(`🗺️ Fetching route from OpenRouteService...`);
-        
-        const response = await fetch(
-            `${API_BASE}/get_alert_route?lat=${alertLat}&lng=${alertLng}`,
-            { credentials: 'include' }
-        );
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success || !data.route) {
-            throw new Error('No route data received');
-        }
-        
-        console.log(`✅ Route: ${data.total_distance} km, ETA: ${data.estimated_duration} min`);
-        
-        // Convert route to Leaflet format
-        const routeLatLngs = data.route.map(point => [point.lat, point.lng]);
-        
-        // Draw route polyline
-        const routeLayer = L.polyline(routeLatLngs, {
-            color: '#dc3545',
-            weight: 5,
-            opacity: 0.8,
-            dashArray: '10, 10',
-            lineJoin: 'round'
-        }).addTo(map);
-        
-        // Fit map to show entire route
-        map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
-        
-        // Add distance info panel
-        const distanceInfo = L.control({ position: 'bottomright' });
-        distanceInfo.onAdd = function() {
-            const div = L.DomUtil.create('div', 'route-info-panel');
-            div.innerHTML = `
+      console.log(`🗺️ Fetching route from OpenRouteService...`);
+
+      const response = await fetch(
+        `${API_BASE}/get_alert_route?lat=${alertLat}&lng=${alertLng}`,
+        { credentials: 'include' }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.route) {
+        throw new Error('No route data received');
+      }
+
+      console.log(`✅ Route: ${data.total_distance} km, ETA: ${data.estimated_duration} min`);
+
+      // Convert route to Leaflet format
+      const routeLatLngs = data.route.map(point => [point.lat, point.lng]);
+
+      // Draw route polyline
+      const routeLayer = L.polyline(routeLatLngs, {
+        color: '#dc3545',
+        weight: 5,
+        opacity: 0.8,
+        dashArray: '10, 10',
+        lineJoin: 'round'
+      }).addTo(map);
+
+      // Fit map to show entire route
+      map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+      // Add distance info panel
+      const distanceInfo = L.control({ position: 'bottomright' });
+      distanceInfo.onAdd = function () {
+        const div = L.DomUtil.create('div', 'route-info-panel');
+        div.innerHTML = `
                 <div style="background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-size: 13px;">
                     <div style="font-weight: bold; margin-bottom: 6px; color: #dc3545;">
                         <i class="fas fa-route"></i> Route Info
@@ -291,18 +291,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                 </div>
             `;
-            return div;
-        };
-        distanceInfo.addTo(map);
-        
+        return div;
+      };
+      distanceInfo.addTo(map);
+
     } catch (error) {
-        console.error('❌ Error loading route:', error);
-      
-        // Show error notification on map
-        const errorControl = L.control({ position: 'topright' });
-        errorControl.onAdd = function() {
-          const div = L.DomUtil.create('div', 'route-error');
-          div.innerHTML = `
+      console.error('❌ Error loading route:', error);
+
+      // Show error notification on map
+      const errorControl = L.control({ position: 'topright' });
+      errorControl.onAdd = function () {
+        const div = L.DomUtil.create('div', 'route-error');
+        div.innerHTML = `
             <div style="background: #fff3cd; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107; font-size: 12px; max-width: 250px;">
               <i class="fas fa-exclamation-triangle"></i> <strong>Route Unavailable</strong><br>
               <span style="color: #666;">Could not calculate route to this location</span>
@@ -321,11 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchAlerts(retryCount = 0) {
     const maxRetries = 3;
     const baseDelay = 2000;
-    
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-      
+
       const response = await fetch(`${API_BASE}/get_alerts`, {
         method: 'GET',
         credentials: 'include',
@@ -339,35 +339,35 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const data = await response.json();
-      
+
       const errorMsg = container.querySelector('.connection-error-banner');
       if (errorMsg) errorMsg.remove();
-      
+
       return data.alerts || [];
-      
+
     } catch (error) {
-      const isNetworkError = error.name === 'TypeError' || 
-                            error.name === 'AbortError' ||
-                            error.message.includes('Failed to fetch') ||
-                            error.message.includes('network');
-      
-      const isCORSError = error.message.includes('CORS') || 
-                         (error.name === 'TypeError' && error.message === 'Failed to fetch');
-      
+      const isNetworkError = error.name === 'TypeError' ||
+        error.name === 'AbortError' ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('network');
+
+      const isCORSError = error.message.includes('CORS') ||
+        (error.name === 'TypeError' && error.message === 'Failed to fetch');
+
       console.error(`Error fetching alerts (attempt ${retryCount + 1}/${maxRetries}):`, {
         name: error.name,
         message: error.message,
         isNetworkError,
         isCORSError
       });
-      
+
       if (retryCount < maxRetries - 1) {
         const delay = baseDelay * Math.pow(2, retryCount);
         showRetryMessage(retryCount + 1, maxRetries, delay);
         await new Promise(resolve => setTimeout(resolve, delay));
         return fetchAlerts(retryCount + 1);
       }
-      
+
       if (container.children.length === 0) {
         container.innerHTML = `
           <div class="info" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
@@ -378,11 +378,11 @@ document.addEventListener("DOMContentLoaded", () => {
                   ${isCORSError ? 'Server Configuration Error' : isNetworkError ? 'Network Connection Issue' : 'Server Connection Error'}
                 </strong>
                 <p style="margin: 8px 0;">
-                  ${isCORSError 
-                    ? 'There\'s a configuration issue with the server. The backend CORS settings need to be updated.' 
-                    : isNetworkError 
-                      ? 'Your network connection changed or was interrupted while loading alerts.' 
-                      : 'Unable to connect to the alerts server.'}
+                  ${isCORSError
+            ? 'There\'s a configuration issue with the server. The backend CORS settings need to be updated.'
+            : isNetworkError
+              ? 'Your network connection changed or was interrupted while loading alerts.'
+              : 'Unable to connect to the alerts server.'}
                 </p>
                 <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                   <button onclick="location.reload()" 
@@ -398,14 +398,14 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         showPersistentErrorBanner(isNetworkError, isCORSError);
       }
-      
+
       return [];
     }
   }
 
   function showRetryMessage(attempt, maxAttempts, delay) {
     let banner = container.querySelector('.retry-banner');
-    
+
     if (!banner) {
       banner = document.createElement('div');
       banner.className = 'retry-banner';
@@ -418,13 +418,13 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
       container.insertBefore(banner, container.firstChild);
     }
-    
+
     banner.innerHTML = `
       <i class="fas fa-sync fa-spin"></i> 
       <strong>Connection retry ${attempt}/${maxAttempts}</strong> - 
-      Retrying in ${(delay/1000).toFixed(0)} seconds...
+      Retrying in ${(delay / 1000).toFixed(0)} seconds...
     `;
-    
+
     setTimeout(() => {
       if (banner && banner.parentElement) {
         banner.remove();
@@ -434,7 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showPersistentErrorBanner(isNetworkError, isCORSError) {
     let banner = container.querySelector('.connection-error-banner');
-    
+
     if (!banner) {
       banner = document.createElement('div');
       banner.className = 'connection-error-banner';
@@ -450,7 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
       container.insertBefore(banner, container.firstChild);
     }
-    
+
     banner.innerHTML = `
       <div>
         <i class="fas fa-exclamation-triangle"></i> 
@@ -513,7 +513,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function reporterHeaderHTML(alert) {
     const hasReporterInfo = alert.reporter_name || alert.barangay;
-    
+
     if (!hasReporterInfo) {
       return `<div class="no-reporter-info">
         <i class="fas fa-info-circle"></i> Reporter information not available
@@ -542,74 +542,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function mediaHTML(alert) {
     let photoUrls = [];
-    if (alert.photo_urls && Array.isArray(alert.photo_urls)) {
-      photoUrls = alert.photo_urls;
+
+    // ✅ Handle JSON string from backend e.g. '["https://res.cloudinary.com/..."]'
+    if (alert.photo_filename) {
+      try {
+        const parsed = JSON.parse(alert.photo_filename);
+        photoUrls = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        photoUrls = [alert.photo_filename]; // fallback if plain URL string
+      }
     } else if (alert.photo_url) {
       photoUrls = [alert.photo_url];
+    } else if (alert.photo_urls && Array.isArray(alert.photo_urls)) {
+      photoUrls = alert.photo_urls;
     }
 
     let videoUrls = [];
-    if (alert.video_urls && Array.isArray(alert.video_urls)) {
-      videoUrls = alert.video_urls;
+
+    // ✅ Same for videos
+    if (alert.video_filename) {
+      try {
+        const parsed = JSON.parse(alert.video_filename);
+        videoUrls = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        videoUrls = [alert.video_filename];
+      }
     } else if (alert.video_url) {
       videoUrls = [alert.video_url];
+    } else if (alert.video_urls && Array.isArray(alert.video_urls)) {
+      videoUrls = alert.video_urls;
     }
 
+    // ✅ If a "photo" URL is actually a video container (Android HEIF/MP4),
+    // render it as a video element instead of an image
     let html = '';
 
     if (photoUrls.length > 0) {
       html += `<div class="media-gallery" style="margin: 10px 0;">`;
-      
-      if (photoUrls.length === 1) {
-        html += `
-          <div class="media-preview">
-            <img src="${photoUrls[0]}" alt="Incident Photo" class="media" loading="lazy"
-                 onclick="openImageModal('${photoUrls[0]}')"
-                 style="cursor: pointer;"
-                 onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'">
-          </div>
-        `;
-      } else {
-        html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">`;
-        photoUrls.forEach((url, index) => {
+
+      photoUrls.forEach((url, index) => {
+        const isVideoContainer = url.includes('/video/upload/');
+
+        if (isVideoContainer) {
+          // Android sent a video container disguised as a photo
           html += `
-            <div class="media-preview" style="position: relative;">
-              <img src="${url}" alt="Photo ${index + 1}" 
-                   style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
-                   onclick="openImageModal('${url}')"
-                   loading="lazy"
-                   onerror="this.style.display='none'">
-              <div style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                ${index + 1}/${photoUrls.length}
-              </div>
-            </div>
-          `;
-        });
-        html += `</div>`;
-      }
+                    <div class="media-preview" style="margin-bottom: 10px;">
+                        <video controls src="${url}" class="media" preload="metadata" 
+                               style="width: 100%; border-radius: 8px;"
+                               onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'">
+                        </video>
+                    </div>`;
+        } else {
+          html += `
+                    <div class="media-preview">
+                        <img src="${url}" alt="Incident Photo ${index + 1}" class="media" loading="lazy"
+                             onclick="openImageModal('${url}')"
+                             style="cursor: pointer; width: 100%; border-radius: 8px;"
+                             onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>📷 Image could not be loaded</div>'">
+                    </div>`;
+        }
+      });
+
       html += `</div>`;
     }
-    
+
     if (videoUrls.length > 0) {
       html += `<div class="video-gallery" style="margin: 10px 0;">`;
       videoUrls.forEach((url, index) => {
         html += `
-          <div class="media-preview" style="margin-bottom: 10px;">
-            <div style="background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 12px;">
-              <i class="fas fa-video"></i> Video ${index + 1}/${videoUrls.length}
-            </div>
-            <video controls src="${url}" class="media" preload="metadata" style="width: 100%; border-radius: 0 0 8px 8px;"
-                   onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'"></video>
-          </div>
-        `;
+                <div class="media-preview" style="margin-bottom: 10px;">
+                    <div style="background: rgba(0,0,0,0.7); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 12px;">
+                        <i class="fas fa-video"></i> Video ${index + 1}/${videoUrls.length}
+                    </div>
+                    <video controls src="${url}" class="media" preload="metadata" 
+                           style="width: 100%; border-radius: 0 0 8px 8px;"
+                           onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;\\'>🎥 Video could not be loaded</div>'">
+                    </video>
+                </div>`;
       });
       html += `</div>`;
     }
-    
+
     if (!photoUrls.length && !videoUrls.length) {
       html = `<div class="media-preview" style="padding:20px;text-align:center;color:#999;background:#f8f9fa;border-radius:8px;margin:10px 0;">
-        📷 No media submitted
-      </div>`;
+            📷 No media submitted
+        </div>`;
     }
 
     return html;
@@ -630,12 +647,12 @@ document.addEventListener("DOMContentLoaded", () => {
       z-index: 10000;
       cursor: pointer;
     `;
-    
+
     modal.innerHTML = `
       <img src="${imageUrl}" style="max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
       <button style="position: absolute; top: 20px; right: 20px; background: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">×</button>
     `;
-    
+
     modal.onclick = () => modal.remove();
     document.body.appendChild(modal);
   };
@@ -648,8 +665,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const a =
       Math.sin(dLat / 2) ** 2 +
       Math.cos(toRad(coord1.lat)) *
-        Math.cos(toRad(coord2.lat)) *
-        Math.sin(dLon / 2) ** 2;
+      Math.cos(toRad(coord2.lat)) *
+      Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return (R * c).toFixed(2);
   }
@@ -662,12 +679,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const alerts = await fetchAlerts();
     const newAlertIds = alerts.map(a => a.id);
     const alertsChanged = JSON.stringify(newAlertIds.sort()) !== JSON.stringify(currentAlertIds.sort());
-    
+
     if (!alertsChanged && container.children.length > 0) {
       updateBadge(alerts.length);
       return;
     }
-    
+
     currentAlertIds = newAlertIds;
     render(alerts);
   }
@@ -678,7 +695,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function render(alertsData = null) {
     const alerts = alertsData || await fetchAlerts();
-    
+
     if (container.children.length === 0) {
       container.innerHTML = `
         <div class="info" style="text-align: center; padding: 20px;">
@@ -723,14 +740,14 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="info"><strong>Alert ID:</strong> #${alert.id}</div>
         <div class="info">
           <strong>Reported:</strong> ${alert.timestamp ? new Date(alert.timestamp).toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-          }) : 'N/A'}
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }) : 'N/A'}
         </div>
         <div class="info"><strong>Description:</strong> ${alert.description || "No description"}</div>
         ${mediaHTML(alert)}
@@ -770,7 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const lat = parseFloat(firstAlert.latitude);
       const lng = parseFloat(firstAlert.longitude);
       const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-      
+
       if (hasCoords) {
         setTimeout(() => {
           loadMap("map-" + firstAlert.id, lat, lng);
