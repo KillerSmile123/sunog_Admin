@@ -52,7 +52,7 @@ async function displayAlertsOnMap(alerts) {
 
   for (const alert of alerts) {
     const coords = await parseAlertLocation(alert);
-    
+
     if (coords) {
       const marker = L.marker([coords.lat, coords.lng], {
         icon: L.icon({
@@ -146,7 +146,7 @@ async function geocodeLocation(locationName) {
 
     const query = encodeURIComponent(`${locationName}, Molave, Zamboanga del Sur, Philippines`);
     const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
-    
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'FireAlertSystem/1.0'
@@ -177,10 +177,10 @@ async function geocodeLocation(locationName) {
 async function fetchAlerts(retryCount = 0) {
   try {
     console.log('📡 Fetching alerts from backend...');
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
-    
+
     const response = await fetch(`${API_BASE}/get_alerts`, {
       method: 'GET',
       credentials: 'include',
@@ -202,13 +202,13 @@ async function fetchAlerts(retryCount = 0) {
     return data.alerts || [];
   } catch (error) {
     console.error(`❌ Error fetching alerts (attempt ${retryCount + 1}):`, error);
-    
+
     if (retryCount === 0 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
       console.log('⏰ Server might be waking up, retrying in 3 seconds...');
       await new Promise(resolve => setTimeout(resolve, 3000));
       return fetchAlerts(1);
     }
-    
+
     return [];
   }
 }
@@ -216,21 +216,21 @@ async function fetchAlerts(retryCount = 0) {
 async function fetchResolvedAlerts() {
   try {
     console.log('📡 Fetching resolved alerts from backend...');
-    
-    const response = await fetch(`${API_BASE}/get_resolved_alerts`, { 
-      method: 'GET', 
+
+    const response = await fetch(`${API_BASE}/get_resolved_alerts`, {
+      method: 'GET',
       credentials: 'include',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       console.warn('⚠️ Failed to fetch resolved alerts from backend');
       return [];
     }
-    
+
     const data = await response.json();
     console.log(`✅ Fetched ${data.resolved?.length || 0} resolved alerts from backend`);
     return data.resolved || [];
@@ -246,7 +246,7 @@ async function fetchResolvedAlerts() {
 
 async function updateDashboard() {
   console.log('🔄 Updating dashboard...');
-  
+
   try {
     // Fetch all data from backend
     const active = await fetchAlerts();
@@ -259,21 +259,21 @@ async function updateDashboard() {
     const activeCountEl = document.getElementById("activeCount");
     const resolvedCountEl = document.getElementById("resolvedCount");
     const totalCountEl = document.getElementById("totalCount");
-    
+
     if (activeCountEl) {
       activeCountEl.textContent = active.length;
       console.log('✅ Updated active count:', active.length);
     } else {
       console.error('❌ Element #activeCount not found!');
     }
-    
+
     if (resolvedCountEl) {
       resolvedCountEl.textContent = resolved.length;
       console.log('✅ Updated resolved count:', resolved.length);
     } else {
       console.error('❌ Element #resolvedCount not found!');
     }
-    
+
     if (totalCountEl) {
       totalCountEl.textContent = total;
       console.log('✅ Updated total count:', total);
@@ -292,7 +292,7 @@ async function updateDashboard() {
     const tableBody = document.getElementById("recentAlertsTable");
     if (tableBody) {
       tableBody.innerHTML = "";
-      
+
       if (active.length === 0 && resolved.length === 0) {
         tableBody.innerHTML = `
           <tr>
@@ -305,12 +305,12 @@ async function updateDashboard() {
         console.log('ℹ️ No alerts to display in table');
       } else {
         const combined = [
-          ...active.map(a => ({...a, status: a.status || "Pending"})), 
-          ...resolved.map(r => ({...r, status: "Resolved"}))
+          ...active.map(a => ({ ...a, status: a.status || "Pending" })),
+          ...resolved.map(r => ({ ...r, status: "Resolved" }))
         ];
-        
-        combined.sort((a, b) => 
-          new Date(b.timestamp || b.resolvedAt || b.resolved_at) - 
+
+        combined.sort((a, b) =>
+          new Date(b.timestamp || b.resolvedAt || b.resolved_at) -
           new Date(a.timestamp || a.resolvedAt || a.resolved_at)
         );
 
@@ -318,16 +318,29 @@ async function updateDashboard() {
           const tr = document.createElement("tr");
           tr.style.cursor = "pointer";
           tr.onclick = () => window.location.href = `alerts.html?id=${alert.id}`;
-          
-          const statusClass = alert.status === 'pending' || alert.status === 'Pending' 
-            ? 'status-pending' 
+
+          const statusClass = alert.status === 'pending' || alert.status === 'Pending'
+            ? 'status-pending'
             : 'status-resolved';
-          
+
           const displayDate = alert.timestamp || alert.resolvedAt || alert.resolved_at;
-          const formattedDate = displayDate 
-            ? new Date(displayDate).toLocaleString() 
-            : 'N/A';
-          
+          let formattedDate = 'N/A';
+          if (displayDate) {
+            // Ensure UTC is interpreted correctly (append 'Z' if no timezone info)
+            const utcString = displayDate.endsWith('Z') || displayDate.includes('+')
+              ? displayDate
+              : displayDate + 'Z';
+            formattedDate = new Date(utcString).toLocaleString('en-US', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            });
+          }
+
           tr.innerHTML = `
             <td style="font-weight: 600;">#${alert.id || i + 1}</td>
             <td>${alert.reporter_name || alert.reporter || "Anonymous"}</td>
@@ -340,7 +353,7 @@ async function updateDashboard() {
           `;
           tableBody.appendChild(tr);
         });
-        
+
         console.log(`✅ Rendered ${Math.min(combined.length, 5)} alerts in table`);
       }
     } else {
@@ -349,7 +362,7 @@ async function updateDashboard() {
 
     // Display all active alerts on map
     await displayAlertsOnMap(active);
-    
+
     console.log('✅ Dashboard update complete!');
   } catch (error) {
     console.error('❌ Error updating dashboard:', error);

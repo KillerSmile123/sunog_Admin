@@ -657,6 +657,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(modal);
   };
 
+
+  //Calculate the distance to the fire accident 
+
   function haversineDistance(coord1, coord2) {
     const toRad = (deg) => (deg * Math.PI) / 180;
     const R = 6371;
