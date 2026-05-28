@@ -275,12 +275,35 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(modal);
   };
 
+  let currentSpamIds = [];
+
   // ========================================
   // RENDER FUNCTION
   // ========================================
 
-  async function render() {
-    const spamAlerts = await fetchSpamAlerts();
+  async function render(data = null) {
+    if (!data && container.children.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #6c757d;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 15px;"></i>
+          <h3>Loading spam alerts...</h3>
+        </div>
+      `;
+    }
+
+    const spamAlerts = data || await fetchSpamAlerts();
+    
+    if (!data) {
+      localStorage.setItem('admin_spam_cache', JSON.stringify(spamAlerts));
+      const newIds = spamAlerts.map(a => a.id);
+      if (JSON.stringify(newIds.sort()) === JSON.stringify(currentSpamIds.sort()) && container.children.length > 0) {
+        updateBadge(spamAlerts.length);
+        return; // No changes
+      }
+      currentSpamIds = newIds;
+    } else {
+      currentSpamIds = spamAlerts.map(a => a.id);
+    }
     
     if (spamAlerts.length === 0) {
       container.innerHTML = `
@@ -381,6 +404,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ========================================
   // INITIALIZE
   // ========================================
+
+  const cached = localStorage.getItem('admin_spam_cache');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.length > 0) render(parsed);
+    } catch (e) {}
+  }
 
   render();
   updateAlertsBadge();

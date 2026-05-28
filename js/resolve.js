@@ -304,20 +304,35 @@ document.addEventListener("DOMContentLoaded", () => {
     return (R * c).toFixed(2);
   }
 
+  let currentResolvedIds = [];
+
   // ========================================
   // RENDER FUNCTION
   // ========================================
 
-  async function render() {
-    // Show loading state
-    container.innerHTML = `
-      <div style="text-align: center; padding: 40px; color: #6c757d;">
-        <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 15px;"></i>
-        <h3>Loading resolved alerts...</h3>
-      </div>
-    `;
+  async function render(data = null) {
+    if (!data && container.children.length === 0) {
+      // Show loading state
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #6c757d;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 15px;"></i>
+          <h3>Loading resolved alerts...</h3>
+        </div>
+      `;
+    }
 
-    const resolvedAlerts = await fetchResolvedAlerts();
+    const resolvedAlerts = data || await fetchResolvedAlerts();
+    
+    if (!data) {
+      localStorage.setItem('admin_resolved_cache', JSON.stringify(resolvedAlerts));
+      const newIds = resolvedAlerts.map(a => a.id);
+      if (JSON.stringify(newIds.sort()) === JSON.stringify(currentResolvedIds.sort()) && container.children.length > 0) {
+        return; // No changes
+      }
+      currentResolvedIds = newIds;
+    } else {
+      currentResolvedIds = resolvedAlerts.map(a => a.id);
+    }
     
     if (resolvedAlerts.length === 0) {
       container.innerHTML = `
@@ -457,6 +472,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ========================================
   // INITIALIZE
   // ========================================
+
+  const cached = localStorage.getItem('admin_resolved_cache');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.length > 0) render(parsed);
+    } catch (e) {}
+  }
 
   render();
   updateBadges();

@@ -680,6 +680,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function updateAlerts() {
     const alerts = await fetchAlerts();
+    localStorage.setItem('admin_alerts_cache', JSON.stringify(alerts));
+    
     const newAlertIds = alerts.map(a => a.id);
     const alertsChanged = JSON.stringify(newAlertIds.sort()) !== JSON.stringify(currentAlertIds.sort());
 
@@ -697,15 +699,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // ========================================
 
   async function render(alertsData = null) {
-    const alerts = alertsData || await fetchAlerts();
-
-    if (container.children.length === 0) {
+    if (!alertsData && container.children.length === 0) {
       container.innerHTML = `
         <div class="info" style="text-align: center; padding: 20px;">
           <i class="fas fa-spinner fa-spin"></i> Loading alerts...
         </div>
       `;
     }
+
+    const alerts = alertsData || await fetchAlerts();
 
     if (alerts.length === 0) {
       container.innerHTML = `
@@ -803,6 +805,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // INITIALIZE
   // ========================================
 
-  render();
+  const cached = localStorage.getItem('admin_alerts_cache');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.length > 0) {
+        currentAlertIds = parsed.map(a => a.id);
+        render(parsed);
+      }
+    } catch (e) {}
+  }
+
+  updateAlerts(); // Fetch fresh data immediately
   setInterval(updateAlerts, 5000);
 });
